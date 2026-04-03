@@ -31,23 +31,40 @@ import Foundation
 
     /// Returns the World ID hosted verification URL.
     /// Open this in SFSafariViewController — World ID renders its own QR.
-    func oidcAuthorizeURL(nonce: String, codeChallenge: String) -> URL {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host   = "id.worldcoin.org"
-        components.path   = "/authorize"
-        components.queryItems = [
-            URLQueryItem(name: "client_id",             value: WorldIDConfig.appID),
-            URLQueryItem(name: "redirect_uri",          value: "equitas://worldid-oidc-callback"),
-            URLQueryItem(name: "response_type",         value: "code"),
-            URLQueryItem(name: "scope",                 value: "openid"),
-            URLQueryItem(name: "state",                 value: nonce),
-            URLQueryItem(name: "nonce",                 value: nonce),
-            URLQueryItem(name: "action",                value: WorldIDConfig.action),
-            URLQueryItem(name: "code_challenge",        value: codeChallenge),
-            URLQueryItem(name: "code_challenge_method", value: "S256"),
+    ///
+    /// Uses explicit percent-encoding rather than URLComponents.queryItems
+    /// to avoid a known issue where URLComponents.url returns nil when a query
+    /// value contains "://" (e.g. the redirect_uri custom scheme).
+    func oidcAuthorizeURL(nonce: String, codeChallenge: String) -> URL? {
+        // Encode only unreserved characters; everything else gets percent-encoded.
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+
+        let enc: (String) -> String = { str in
+            str.addingPercentEncoding(withAllowedCharacters: allowed) ?? str
+        }
+
+        let params: [(String, String)] = [
+            ("client_id",             WorldIDConfig.appID),
+            ("redirect_uri",          "equitas://worldid-oidc-callback"),
+            ("response_type",         "code"),
+            ("scope",                 "openid"),
+            ("state",                 nonce),
+            ("nonce",                 nonce),
+            ("action",                WorldIDConfig.action),
+            ("code_challenge",        codeChallenge),
+            ("code_challenge_method", "S256"),
         ]
-        return components.url ?? URL(string: "https://id.worldcoin.org")!
+
+        let query = params
+            .map { "\(enc($0.0))=\(enc($0.1))" }
+            .joined(separator: "&")
+
+        let urlString = "https://id.worldcoin.org/authorize?\(query)"
+        #if DEBUG
+        print("[WorldID] OIDC URL: \(urlString)")
+        #endif
+        return URL(string: urlString)
     }
 
     // MARK: - Callback parsing

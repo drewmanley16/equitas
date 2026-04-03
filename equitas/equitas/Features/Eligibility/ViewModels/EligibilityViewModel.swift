@@ -55,7 +55,11 @@ final class EligibilityViewModel {
 
         activeNonce  = nonce
         codeVerifier = verifier
-        oidcURL      = service.oidcAuthorizeURL(nonce: nonce, codeChallenge: challenge)
+        guard let url = service.oidcAuthorizeURL(nonce: nonce, codeChallenge: challenge) else {
+            worldIDState = .failed(WorldIDError.contextFetchFailed)
+            return
+        }
+        oidcURL      = url
         worldIDState = .waitingForScan
     }
 
