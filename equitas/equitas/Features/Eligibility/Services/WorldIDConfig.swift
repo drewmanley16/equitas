@@ -4,10 +4,10 @@ import Foundation
 /// Register your app at https://developer.worldcoin.org
 enum WorldIDConfig {
     /// The App ID from the World ID Developer Portal
-    static let appID  = "app_staging_YOUR_APP_ID_HERE"
+    static let appID  = "app_6dc3841d23546ffd0ded96c75161a346"
 
     /// Action identifier — must match what's registered in the portal
-    static let action = "snap-eligibility-verify"
+    static let action = "equitas01"
 
     /// Verification level: "orb" (highest trust) or "device"
     static let verificationLevel = "orb"
