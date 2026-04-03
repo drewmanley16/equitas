@@ -3,6 +3,7 @@ import SwiftUI
 struct WorldIDStepView: View {
     let viewModel: EligibilityViewModel
     @Environment(AppState.self) private var appState
+    @State private var showOIDCSafari = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -42,14 +43,14 @@ struct WorldIDStepView: View {
                         .frame(height: 80)
 
                 case .waitingForScan:
-                    WaitingForScanView(viewModel: viewModel)
+                    WaitingForScanView(showSafari: $showOIDCSafari)
 
                 case .verifying:
                     VStack(spacing: 16) {
                         ProgressView()
                             .tint(EquitasTheme.gold)
                             .scaleEffect(1.4)
-                        Text("Verifying your proof on-chain…")
+                        Text("Verifying your proof…")
                             .font(EquitasTheme.bodyFont)
                             .foregroundStyle(EquitasTheme.textSecondary)
                     }
@@ -90,65 +91,39 @@ struct WorldIDStepView: View {
             .padding(.bottom, 32)
         }
         .task { await viewModel.startWorldIDVerification() }
-        .onDisappear { viewModel.cancelWorldIDPolling() }
-        .onChange(of: appState.pendingWorldIDCallback) { _, url in
+        // Open SFSafariViewController with World ID's hosted verification page
+        .sheet(isPresented: $showOIDCSafari) {
+            if let url = viewModel.oidcURL {
+                SafariView(url: url)
+                    .ignoresSafeArea()
+            }
+        }
+        // Receive OIDC callback from equitasApp.onOpenURL
+        .onChange(of: appState.pendingOIDCCallback) { _, url in
             guard let url else { return }
-            appState.pendingWorldIDCallback = nil
-            Task { await viewModel.handleWorldIDCallback(url: url) }
+            showOIDCSafari = false          // dismiss SFSafariViewController
+            appState.pendingOIDCCallback = nil
+            Task { await viewModel.handleOIDCCallback(url: url) }
         }
     }
 }
 
-// MARK: - Waiting for scan: deep link + QR fallback
+// MARK: - Waiting for scan
 private struct WaitingForScanView: View {
-    let viewModel: EligibilityViewModel
-    @State private var showQR = false
-    @Environment(\.openURL) private var openURL
+    @Binding var showSafari: Bool
 
     var body: some View {
         VStack(spacing: 20) {
-            // Primary: open World App on this device
-            if let deepLink = viewModel.worldIDDeepLinkURL {
-                PrimaryButton(title: "Open World App", icon: "globe", style: .gold) {
-                    openURL(deepLink)
-                }
+            // Open World ID hosted page — shows its own QR code
+            PrimaryButton(title: "Verify with World ID", icon: "globe", style: .gold) {
+                showSafari = true
             }
 
-            // Secondary: show QR for scanning from another device
-            Button {
-                withAnimation(.spring(response: 0.4)) { showQR.toggle() }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: showQR ? "chevron.up" : "qrcode")
-                        .font(.system(size: 13))
-                    Text(showQR ? "Hide QR Code" : "Scan from another device")
-                        .font(EquitasTheme.captionFont)
-                }
+            Text("A browser will open showing a QR code.\nScan it with the World App on any device.")
+                .font(EquitasTheme.captionFont)
                 .foregroundStyle(EquitasTheme.textSecondary)
-            }
-
-            if showQR, let url = viewModel.worldIDConnectorURL {
-                VStack(spacing: 10) {
-                    QRCodeView(content: url.absoluteString)
-                        .frame(width: 200, height: 200)
-                        .purpleGlow(radius: 16)
-                    Text("Scan with World App")
-                        .font(EquitasTheme.captionFont)
-                        .foregroundStyle(EquitasTheme.textSecondary)
-                }
-                .transition(.scale.combined(with: .opacity))
-            }
-
-            // Polling indicator
-            HStack(spacing: 8) {
-                ProgressView()
-                    .tint(EquitasTheme.purple)
-                    .scaleEffect(0.8)
-                Text("Listening for verification…")
-                    .font(EquitasTheme.captionFont)
-                    .foregroundStyle(EquitasTheme.textSecondary)
-            }
-            .padding(.top, 4)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
         }
     }
 }
@@ -187,9 +162,9 @@ private struct StatusBadge: View {
 // MARK: - How it works card
 private struct HowItWorksCard: View {
     private let steps: [(String, String)] = [
-        ("1", "Open World App or scan the QR code"),
-        ("2", "World App generates a ZK proof of your iris scan"),
-        ("3", "Proof is verified on-chain — your data stays private"),
+        ("1", "Tap \"Verify with World ID\" to open the verification page"),
+        ("2", "Scan the QR code with World App on any device"),
+        ("3", "World App generates a ZK proof — your data stays private"),
     ]
 
     var body: some View {

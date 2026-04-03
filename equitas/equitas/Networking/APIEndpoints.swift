@@ -5,6 +5,7 @@ enum APIEndpoint {
     case worldIDContext
     case worldIDStatus
     case worldIDVerify
+    case worldIDOIDCExchange
     case zkProve
     case mintNFT
     case issueTokens
@@ -21,11 +22,12 @@ enum APIEndpoint {
     var url: URL {
         let path: String
         switch self {
-        case .verifyApple:    path = "/api/auth/verify-apple"
-        case .worldIDContext: path = "/api/worldid/context"
-        case .worldIDStatus:  path = "/api/worldid/status"
-        case .worldIDVerify:  path = "/api/worldid/verify"
-        case .zkProve:        path = "/api/zk/prove"
+        case .verifyApple:          path = "/api/auth/verify-apple"
+        case .worldIDContext:       path = "/api/worldid/context"
+        case .worldIDStatus:        path = "/api/worldid/status"
+        case .worldIDVerify:        path = "/api/worldid/verify"
+        case .worldIDOIDCExchange:  path = "/api/worldid/oidc-exchange"
+        case .zkProve:              path = "/api/zk/prove"
         case .mintNFT:        path = "/api/blockchain/mint-nft"
         case .issueTokens:    path = "/api/blockchain/issue-tokens"
         case .generatePass:   path = "/api/wallet/generate-pass"

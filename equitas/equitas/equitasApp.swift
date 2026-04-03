@@ -10,9 +10,16 @@ struct equitasApp: App {
                 .environment(appState)
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
-                    // World App calls back to equitas://worldid-callback?proof=...
-                    if url.scheme == "equitas" && url.host == "worldid-callback" {
+                    guard url.scheme == "equitas" else { return }
+                    switch url.host {
+                    case "worldid-callback":
+                        // Legacy return_to callback (kept for compatibility)
                         appState.pendingWorldIDCallback = url
+                    case "worldid-oidc-callback":
+                        // OIDC authorization code callback from World ID hosted page
+                        appState.pendingOIDCCallback = url
+                    default:
+                        break
                     }
                 }
         }

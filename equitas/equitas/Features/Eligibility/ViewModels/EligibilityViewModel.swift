@@ -16,22 +16,23 @@ enum ProcessingStatus {
 @MainActor
 final class EligibilityViewModel {
     var currentStep: VerificationStep = .worldID
-    var worldIDConnectorURL: URL?
-    var worldIDDeepLinkURL: URL?
-    var worldIDState: WorldIDState = .idle
-    var isProvingIncome = false
+    var worldIDState: WorldIDState    = .idle
+    var isProvingIncome               = false
+
+    /// The World ID OIDC URL — open this in SFSafariViewController
+    var oidcURL: URL?
 
     // Processing sub-step statuses
-    var walletStatus: ProcessingStatus = .pending
+    var walletStatus:  ProcessingStatus = .pending
     var circlesStatus: ProcessingStatus = .pending
-    var nftStatus: ProcessingStatus = .pending
-    var tokenStatus: ProcessingStatus = .pending
+    var nftStatus:     ProcessingStatus = .pending
+    var tokenStatus:   ProcessingStatus = .pending
 
     // Held in memory only — never persisted
-    private var worldIDProof: WorldIDProof?
+    private var worldIDProof:  WorldIDOIDCExchangeResponse?
     private var zkProofResult: ZKProofResult?
-    private var pollTask: Task<Void, Never>?
-    private var activeNonce: String?
+    private var activeNonce:   String?
+    private var codeVerifier:  String?
     private let service = WorldIDService()
 
     var stepIndex: Int {
@@ -42,41 +43,43 @@ final class EligibilityViewModel {
         }
     }
 
-    // MARK: - World ID
+    // MARK: - World ID OIDC
 
+    /// Generates PKCE pair, builds OIDC URL, sets state to .waitingForScan.
+    /// The view should then show a button to open oidcURL in SFSafariViewController.
     func startWorldIDVerification() async {
         worldIDState = .fetchingContext
-        do {
-            let context = try await service.fetchContext()
-            activeNonce         = context.nonce
-            worldIDConnectorURL = service.connectorURL(context: context)
-            worldIDDeepLinkURL  = service.deepLinkURL(context: context)
-            worldIDState = .waitingForScan
-        } catch {
-            worldIDState = .failed(error)
-            currentStep = .failed(error)
-        }
+
+        let nonce = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        let (verifier, challenge) = service.generatePKCE()
+
+        activeNonce  = nonce
+        codeVerifier = verifier
+        oidcURL      = service.oidcAuthorizeURL(nonce: nonce, codeChallenge: challenge)
+        worldIDState = .waitingForScan
     }
 
-    /// Called by equitasApp.onOpenURL when World App returns the proof
-    func handleWorldIDCallback(url: URL) async {
-        guard let proof = service.parseCallback(url),
-              let nonce = activeNonce else { return }
+    /// Called by the view when equitas://worldid-oidc-callback is received.
+    func handleOIDCCallback(url: URL) async {
+        guard let (code, state) = service.parseOIDCCallback(url),
+              let verifier = codeVerifier,
+              state == activeNonce else { return }
+
         worldIDState = .verifying
         do {
-            _ = try await service.verifyOnBackend(proof: proof, nonce: nonce)
-            worldIDProof = proof
+            let response = try await service.exchangeOIDCCode(
+                code: code, nonce: state, codeVerifier: verifier
+            )
+            guard response.verified else { throw WorldIDError.verificationFailed }
+            worldIDProof = response
+            // Zero out sensitive PKCE material
+            codeVerifier = nil
             worldIDState = .verified
+            try? await Task.sleep(nanoseconds: 1_200_000_000) // 1.2 s to show ✓
             currentStep  = .incomeVerification
         } catch {
             worldIDState = .failed(error)
-            currentStep  = .failed(error)
         }
-    }
-
-    func cancelWorldIDPolling() {
-        pollTask?.cancel()
-        pollTask = nil
     }
 
     // MARK: - Income ZK proof
@@ -162,7 +165,7 @@ enum WorldIDState: Equatable {
         switch self {
         case .idle:            return ""
         case .fetchingContext: return "Preparing verification…"
-        case .waitingForScan:  return "Waiting for World App scan…"
+        case .waitingForScan:  return "Ready — tap to verify"
         case .verifying:       return "Verifying proof…"
         case .verified:        return "Identity verified!"
         case .failed:          return "Verification failed"
