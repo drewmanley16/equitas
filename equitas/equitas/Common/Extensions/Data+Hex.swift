@@ -18,4 +18,12 @@ extension Data {
         }
         self = data
     }
+
+    /// URL-safe base64 encoding without padding — used for PKCE code_verifier / code_challenge.
+    func base64URLEncoded() -> String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=",  with: "")
+    }
 }

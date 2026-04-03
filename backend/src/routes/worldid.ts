@@ -4,7 +4,10 @@ import {
   createSession,
   getSession,
   resolveSession,
+  failSession,
   verifyProofWithWorldID,
+  exchangeOIDCCode,
+  upsertSession,
 } from '../services/worldid.service';
 
 const router = Router();
@@ -66,6 +69,33 @@ router.post('/verify', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('World ID verify error:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/worldid/oidc-exchange
+// iOS app sends OIDC authorization code + PKCE verifier after redirect callback
+// Backend exchanges code for id_token, extracts nullifier_hash
+router.post('/oidc-exchange', async (req: Request, res: Response) => {
+  const { code, state: nonce, code_verifier } = req.body;
+
+  if (!code || !nonce || !code_verifier) {
+    return res.status(400).json({ error: 'code, state, and code_verifier are required' });
+  }
+
+  try {
+    const result = await exchangeOIDCCode(code, code_verifier);
+    upsertSession(nonce);
+    resolveSession(nonce, {
+      proof:              'oidc',
+      merkle_root:        result.merkle_root    ?? '',
+      nullifier_hash:     result.nullifier_hash,
+      verification_level: result.credential_type ?? 'orb',
+    });
+    res.json({ success: true, verified: true, nullifier_hash: result.nullifier_hash });
+  } catch (err: any) {
+    console.error('OIDC exchange error:', err.message);
+    failSession(nonce);
+    res.status(400).json({ error: err.message });
   }
 });
 

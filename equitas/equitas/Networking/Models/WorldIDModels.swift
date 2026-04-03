@@ -64,6 +64,29 @@ struct WorldIDVerifyResponse: Codable {
     let verified: Bool
 }
 
+// MARK: - OIDC exchange (iOS sends auth code + PKCE verifier; backend does token swap)
+struct WorldIDOIDCExchangeRequest: Codable {
+    let code: String
+    let state: String
+    let codeVerifier: String
+
+    enum CodingKeys: String, CodingKey {
+        case code, state
+        case codeVerifier = "code_verifier"
+    }
+}
+
+struct WorldIDOIDCExchangeResponse: Codable {
+    let success: Bool
+    let verified: Bool
+    let nullifierHash: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success, verified
+        case nullifierHash = "nullifier_hash"
+    }
+}
+
 // MARK: - Errors
 enum WorldIDError: Error, LocalizedError {
     case contextFetchFailed
