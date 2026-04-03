@@ -6,8 +6,11 @@ export const config = {
 
   // World ID
   worldID: {
-    appID:  process.env.WORLDID_APP_ID  || 'app_6dc3841d23546ffd0ded96c75161a346',
-    action: process.env.WORLDID_ACTION  || 'equitas01',
+    appID:        process.env.WORLDID_APP_ID         || 'app_6dc3841d23546ffd0ded96c75161a346',
+    action:       process.env.WORLDID_ACTION         || 'equitas01',
+    rpID:         process.env.WORLDID_RP_ID          || '',
+    rpSigningKey: process.env.WORLDID_RP_SIGNING_KEY || '',
+    environment:  process.env.WORLDID_ENVIRONMENT    || 'staging',
   },
 
   // Hedera

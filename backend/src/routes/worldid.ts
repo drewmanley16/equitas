@@ -1,29 +1,36 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config';
 import {
-  createSession,
-  getSession,
-  resolveSession,
-  failSession,
-  verifyProofWithWorldID,
+  createRpContext,
+  getLegacySession,
+  resolveLegacySession,
+  failLegacySession,
+  verifyIDKitPayload,
+  verifyLegacyProofWithWorldID,
   exchangeOIDCCode,
-  upsertSession,
+  upsertLegacySession,
 } from '../services/worldid.service';
 
 const router = Router();
 
 // GET /api/worldid/context
-// iOS app calls this to get a nonce + app config before showing QR
+// iOS app calls this to get RP context + app config before showing QR
 router.post('/context', (req: Request, res: Response) => {
   const signal = req.body?.signal || '';
-  const nonce  = createSession();
 
-  res.json({
-    nonce,
-    app_id:  config.worldID.appID,
-    action:  config.worldID.action,
-    signal,
-  });
+  try {
+    const rpContext = createRpContext();
+
+    res.json({
+      ...rpContext,
+      app_id: config.worldID.appID,
+      action: config.worldID.action,
+      signal,
+      environment: config.worldID.environment,
+    });
+  } catch (err: any) {
+    res.status(503).json({ error: err.message });
+  }
 });
 
 // POST /api/worldid/status
@@ -32,7 +39,7 @@ router.post('/status', (req: Request, res: Response) => {
   const { nonce } = req.body;
   if (!nonce) return res.status(400).json({ error: 'nonce required' });
 
-  const session = getSession(nonce);
+  const session = getLegacySession(nonce);
   if (!session) return res.status(404).json({ error: 'session not found' });
 
   if (session.status === 'success' && session.proof) {
@@ -43,8 +50,18 @@ router.post('/status', (req: Request, res: Response) => {
 });
 
 // POST /api/worldid/verify
-// iOS app sends the proof after World App callback — we verify with World ID API
+// iOS app sends the IDKit result or legacy proof after verification — backend verifies with World ID API
 router.post('/verify', async (req: Request, res: Response) => {
+  if (req.body?.protocol_version && Array.isArray(req.body?.responses)) {
+    try {
+      const verified = await verifyIDKitPayload(req.body);
+      return res.json({ success: verified.success, verified: verified.success });
+    } catch (err: any) {
+      console.error('World ID v4 verify error:', err.message);
+      return res.status(400).json({ error: err.message });
+    }
+  }
+
   const { proof, merkle_root, nullifier_hash, verification_level, nonce, signal } = req.body;
 
   if (!proof || !merkle_root || !nullifier_hash) {
@@ -52,7 +69,7 @@ router.post('/verify', async (req: Request, res: Response) => {
   }
 
   try {
-    const verified = await verifyProofWithWorldID({
+    const verified = await verifyLegacyProofWithWorldID({
       proof,
       merkle_root,
       nullifier_hash,
@@ -62,7 +79,7 @@ router.post('/verify', async (req: Request, res: Response) => {
     });
 
     if (verified && nonce) {
-      resolveSession(nonce, { proof, merkle_root, nullifier_hash, verification_level });
+      resolveLegacySession(nonce, { proof, merkle_root, nullifier_hash, verification_level });
     }
 
     res.json({ success: verified, verified });
@@ -84,8 +101,8 @@ router.post('/oidc-exchange', async (req: Request, res: Response) => {
 
   try {
     const result = await exchangeOIDCCode(code, code_verifier);
-    upsertSession(nonce);
-    resolveSession(nonce, {
+    upsertLegacySession(nonce);
+    resolveLegacySession(nonce, {
       proof:              'oidc',
       merkle_root:        result.merkle_root    ?? '',
       nullifier_hash:     result.nullifier_hash,
@@ -94,7 +111,7 @@ router.post('/oidc-exchange', async (req: Request, res: Response) => {
     res.json({ success: true, verified: true, nullifier_hash: result.nullifier_hash });
   } catch (err: any) {
     console.error('OIDC exchange error:', err.message);
-    failSession(nonce);
+    failLegacySession(nonce);
     res.status(400).json({ error: err.message });
   }
 });
