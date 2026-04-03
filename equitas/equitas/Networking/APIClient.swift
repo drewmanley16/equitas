@@ -17,7 +17,7 @@ final class APIClient: @unchecked Sendable {
            let u = URL(string: s), !s.isEmpty {
             return u
         }
-        return URL(string: "http://127.0.0.1:8787")!
+        return URL(string: "http://127.0.0.1:3000")!
     }
 
     private func url(for endpoint: APIEndpoint) throws -> URL {

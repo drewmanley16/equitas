@@ -6,7 +6,11 @@ SNAP eligibility verification with zero-knowledge proofs, Hedera NFT portability
 
 Open `equitas/equitas.xcodeproj` in Xcode. Build the `equitas` scheme.
 
-Optional: set `EquitasAPIBaseURL` in the app Info.plist to your Mac’s LAN URL when testing on a physical device (defaults to `http://127.0.0.1:8787` for Simulator).
+Optional: set `EquitasAPIBaseURL` in the app Info.plist to your Mac’s LAN URL when testing on a physical device (defaults to `http://127.0.0.1:3000` for Simulator).
+
+## Safe local demo (Anvil — no real funds)
+
+See [LOCAL_DEMO.md](LOCAL_DEMO.md) for a full **localhost-only** ARC flow (Anvil, MockUSDC, disposable keys).
 
 ## Backend (benefits API)
 
@@ -22,6 +26,7 @@ npm start
 
 Core routes:
 
+- `GET /api/health`
 - `POST /api/benefits/approve-user`
 - `POST /api/benefits/deposit`
 - `POST /api/benefits/setup-merchant`

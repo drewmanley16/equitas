@@ -32,6 +32,10 @@ function requireEnv(name) {
 const app = express();
 app.use(express.json());
 
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, service: "equitas-benefits-api" });
+});
+
 const rpcUrl = requireEnv("RPC_URL");
 const operatorKey = requireEnv("OPERATOR_PRIVATE_KEY");
 const spenderAddr = requireEnv("SNAP_SPENDER_ADDRESS");
@@ -166,7 +170,7 @@ app.get("/api/benefits/status/:userAddress", async (req, res) => {
   }
 });
 
-const port = Number(process.env.PORT ?? 8787);
+const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
   console.log(`Benefits API on http://127.0.0.1:${port}`);
 });
