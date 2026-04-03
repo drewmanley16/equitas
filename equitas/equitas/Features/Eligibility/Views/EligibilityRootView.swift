@@ -4,7 +4,9 @@ struct EligibilityRootView: View {
     @State private var viewModel = EligibilityViewModel()
 
     var body: some View {
-        NavigationStack {
+        ZStack {
+            CosmicBackground()
+
             Group {
                 switch viewModel.currentStep {
                 case .worldID:
@@ -16,20 +18,38 @@ struct EligibilityRootView: View {
                 case .complete:
                     EligibilityCompleteView()
                 case .failed(let error):
-                    ContentUnavailableView(
-                        "Verification Failed",
-                        systemImage: "xmark.circle",
-                        description: Text(error.localizedDescription)
-                    )
+                    VStack(spacing: 20) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(.red)
+                        Text("Verification Failed")
+                            .font(EquitasTheme.titleFont)
+                            .foregroundStyle(EquitasTheme.textPrimary)
+                        Text(error.localizedDescription)
+                            .font(EquitasTheme.bodyFont)
+                            .foregroundStyle(EquitasTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                        PrimaryButton(title: "Try Again", style: .ghost) {
+                            viewModel.currentStep = .worldID
+                        }
+                        .padding(.horizontal, EquitasTheme.screenPadding)
+                    }
                 }
             }
-            .navigationTitle("Eligibility")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
+        }
+        .navigationTitle("")
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 12) {
+                    Text("Verify")
+                        .font(EquitasTheme.headlineFont)
+                        .foregroundStyle(EquitasTheme.textPrimary)
                     StepProgressView(currentStep: viewModel.stepIndex, totalSteps: 3)
                 }
             }
         }
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 }
