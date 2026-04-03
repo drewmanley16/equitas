@@ -30,7 +30,7 @@ set +a
 RPC_URL="${RPC_URL:-$ANVIL_RPC_URL}"
 
 echo "==> Merchant MockUSDC balance BEFORE (atomic units)"
-BEFORE_MERCHANT="$(cast call "$USDC_ADDRESS" "balanceOf(address)(uint256)" "$DEMO_MERCHANT_ADDRESS" --rpc-url "$RPC_URL")"
+BEFORE_MERCHANT="$(cast call "$USDC_ADDRESS" "balanceOf(address)(uint256)" "$DEMO_MERCHANT_ADDRESS" --rpc-url "$RPC_URL" | awk '{print $1}')"
 echo "    $BEFORE_MERCHANT"
 
 echo "==> User status BEFORE (remaining atomic)"
@@ -47,7 +47,7 @@ cast send "$SNAP_SPENDER_ADDRESS" \
   --private-key "$ANVIL_ACCOUNT_1_PRIVATE_KEY"
 
 echo "==> Merchant MockUSDC balance AFTER"
-AFTER_MERCHANT="$(cast call "$USDC_ADDRESS" "balanceOf(address)(uint256)" "$DEMO_MERCHANT_ADDRESS" --rpc-url "$RPC_URL")"
+AFTER_MERCHANT="$(cast call "$USDC_ADDRESS" "balanceOf(address)(uint256)" "$DEMO_MERCHANT_ADDRESS" --rpc-url "$RPC_URL" | awk '{print $1}')"
 echo "    $AFTER_MERCHANT"
 
 echo "==> User status AFTER"

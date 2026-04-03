@@ -72,6 +72,8 @@ cast send "$USDC_ADDRESS" "mint(address,uint256)" "$ANVIL_ACCOUNT_0_ADDRESS" "$D
 echo "==> Start backend"
 "$SCRIPT_DIR/run-local-backend.sh"
 
+sleep 0.4
+
 echo "==> Wait for http://127.0.0.1:3000/api/health"
 for _ in $(seq 1 80); do
   if curl -sfS "http://127.0.0.1:3000/api/health" >/dev/null; then
@@ -82,6 +84,22 @@ for _ in $(seq 1 80); do
 done
 if ! curl -sfS "http://127.0.0.1:3000/api/health" >/dev/null; then
   echo "ERROR: backend did not respond on port 3000. See .local-demo/backend.log"
+  exit 1
+fi
+
+echo "==> Wait for benefits routes (ethers loads after listen)"
+READY=0
+for _ in $(seq 1 80); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3000/api/benefits/status/0x0000000000000000000000000000000000000001" || echo "000")
+  if [[ "$code" != "404" ]]; then
+    echo "    Benefits routes ready (HTTP $code)."
+    READY=1
+    break
+  fi
+  sleep 0.15
+done
+if [[ "$READY" != "1" ]]; then
+  echo "ERROR: benefits routes did not register. See .local-demo/backend.log"
   exit 1
 fi
 
@@ -121,17 +139,17 @@ EU="$(cast call "$SP" "approvedUsers(address)(bool)" "$U" --rpc-url "$RPCV" | tr
 EM="$(cast call "$SP" "approvedMerchants(address)(bool)" "$M" --rpc-url "$RPCV" | tr '[:upper:]' '[:lower:]')"
 [[ "$EM" == *"true"* ]] || { echo "FAIL: merchant not approved"; exit 1; }
 
-SPENT="$(cast call "$SP" "userSpent(address)(uint256)" "$U" --rpc-url "$RPCV")"
+SPENT="$(cast call "$SP" "userSpent(address)(uint256)" "$U" --rpc-url "$RPCV" | awk '{print $1}')"
 [[ "$SPENT" == "$PAY" ]] || { echo "FAIL: userSpent ($SPENT) != payment ($PAY)"; exit 1; }
 
-ALLOWANCE="$(cast call "$SP" "userAllowance(address)(uint256)" "$U" --rpc-url "$RPCV")"
+ALLOWANCE="$(cast call "$SP" "userAllowance(address)(uint256)" "$U" --rpc-url "$RPCV" | awk '{print $1}')"
 python3 -c "a=int('$ALLOWANCE'); s=int('$SPENT'); cap=int('$CAP'); p=int('$PAY'); assert a==cap; assert a-s==cap-p"
 
 echo "    user allowance (cap): $ALLOWANCE atomic"
 echo "    user spent:           $SPENT atomic"
 echo "    remaining (cap−spent): $(python3 -c "print(int('$ALLOWANCE')-int('$SPENT'))") atomic"
 
-MB="$(cast call "$US" "balanceOf(address)(uint256)" "$M" --rpc-url "$RPCV")"
+MB="$(cast call "$US" "balanceOf(address)(uint256)" "$M" --rpc-url "$RPCV" | awk '{print $1}')"
 python3 -c "import sys; assert int('$MB') >= int('$PAY'); print('OK: merchant MockUSDC balance covers payment')"
 echo "OK: validations passed — ARC local flow complete."
 

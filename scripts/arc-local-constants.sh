@@ -2,6 +2,8 @@
 # shellcheck disable=SC2034
 # Disposable Anvil default accounts — LOCAL ANVIL ONLY. Never use on mainnet or public testnets.
 
+export PATH="${HOME}/.foundry/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
+
 export ANVIL_RPC_URL="${ANVIL_RPC_URL:-http://127.0.0.1:8545}"
 
 # Account #0 — deployer / backend operator (admin)
