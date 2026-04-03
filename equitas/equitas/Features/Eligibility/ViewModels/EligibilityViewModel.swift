@@ -16,7 +16,9 @@ enum ProcessingStatus {
 @MainActor
 final class EligibilityViewModel {
     var currentStep: VerificationStep = .worldID
-    var worldIDConnectorURL: URL? = nil
+    var worldIDConnectorURL: URL?
+    var worldIDDeepLinkURL: URL?
+    var worldIDState: WorldIDState = .idle
     var isProvingIncome = false
 
     // Processing sub-step statuses
@@ -28,6 +30,7 @@ final class EligibilityViewModel {
     // Held in memory only — never persisted
     private var worldIDProof: WorldIDProof?
     private var zkProofResult: ZKProofResult?
+    private var pollTask: Task<Void, Never>?
 
     var stepIndex: Int {
         switch currentStep {
@@ -37,28 +40,61 @@ final class EligibilityViewModel {
         }
     }
 
+    // MARK: - World ID
+
     func startWorldIDVerification() async {
         let service = WorldIDService()
+        worldIDState = .fetchingContext
+
         do {
-            let (url, proof) = try await service.startVerification()
-            worldIDConnectorURL = url
-            worldIDProof = proof
-            currentStep = .incomeVerification
+            let context = try await service.fetchContext()
+            worldIDConnectorURL = service.connectorURL(context: context)
+            worldIDDeepLinkURL  = service.deepLinkURL(context: context)
+            worldIDState = .waitingForScan
+
+            // Start polling in background — don't block the UI
+            pollTask = Task {
+                do {
+                    let proof = try await service.pollUntilComplete(nonce: context.nonce)
+                    worldIDState = .verifying
+                    _ = try await service.verifyOnBackend(proof: proof, nonce: context.nonce)
+                    worldIDProof = proof
+                    worldIDState = .verified
+                    currentStep = .incomeVerification
+                } catch is CancellationError {
+                    // User navigated away
+                } catch {
+                    worldIDState = .failed(error)
+                    currentStep = .failed(error)
+                }
+            }
         } catch {
+            worldIDState = .failed(error)
             currentStep = .failed(error)
         }
     }
 
+    func cancelWorldIDPolling() {
+        pollTask?.cancel()
+        pollTask = nil
+    }
+
+    // MARK: - Income ZK proof
+
     func startDocumentScan() async {
         let scanner = DocumentScannerService()
-        let hasher = IncomeHashingService()
-        let prover = BackendZKProofService()
+        let hasher  = IncomeHashingService()
+        let prover  = BackendZKProofService()
         do {
             let fields = try await scanner.scanPaystub()
             isProvingIncome = true
             let hashes = hasher.hash(fields)
-            zkProofResult = try await prover.generateProof(from: hashes)
+            let result = try await prover.generateProof(from: hashes)
             isProvingIncome = false
+            guard result.isValid else {
+                throw ZKProofError.invalidProof
+            }
+            zkProofResult = result
             currentStep = .processing
         } catch {
             isProvingIncome = false
@@ -70,11 +106,13 @@ final class EligibilityViewModel {
         // TODO: implement Plaid/MX OAuth bank link flow
     }
 
+    // MARK: - Blockchain orchestration
+
     func runBlockchainOrchestration() async {
-        let walletService = WalletService()
+        let walletService  = WalletService()
         let circlesService = CirclesWalletService()
-        let hederaService = HederaService()
-        let snapService = SNAPtokenService()
+        let hederaService  = HederaService()
+        let snapService    = SNAPtokenService()
 
         do {
             walletStatus = .inProgress
@@ -98,4 +136,41 @@ final class EligibilityViewModel {
             currentStep = .failed(error)
         }
     }
+}
+
+// MARK: - Supporting types
+
+enum WorldIDState: Equatable {
+    case idle
+    case fetchingContext
+    case waitingForScan
+    case verifying
+    case verified
+    case failed(Error)
+
+    static func == (lhs: WorldIDState, rhs: WorldIDState) -> Bool {
+        switch (lhs, rhs) {
+        case (.idle, .idle), (.fetchingContext, .fetchingContext),
+             (.waitingForScan, .waitingForScan), (.verifying, .verifying),
+             (.verified, .verified): return true
+        case (.failed, .failed): return true
+        default: return false
+        }
+    }
+
+    var statusLabel: String {
+        switch self {
+        case .idle:            return ""
+        case .fetchingContext: return "Preparing verification…"
+        case .waitingForScan:  return "Waiting for World App scan…"
+        case .verifying:       return "Verifying proof…"
+        case .verified:        return "Identity verified!"
+        case .failed:          return "Verification failed"
+        }
+    }
+}
+
+enum ZKProofError: Error, LocalizedError {
+    case invalidProof
+    var errorDescription: String? { "Income proof could not be verified." }
 }

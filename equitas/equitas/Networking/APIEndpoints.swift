@@ -3,6 +3,7 @@ import Foundation
 enum APIEndpoint {
     case verifyApple
     case worldIDContext
+    case worldIDStatus
     case worldIDVerify
     case zkProve
     case mintNFT
@@ -16,6 +17,7 @@ enum APIEndpoint {
         switch self {
         case .verifyApple:    path = "/api/auth/verify-apple"
         case .worldIDContext: path = "/api/worldid/context"
+        case .worldIDStatus:  path = "/api/worldid/status"
         case .worldIDVerify:  path = "/api/worldid/verify"
         case .zkProve:        path = "/api/zk/prove"
         case .mintNFT:        path = "/api/blockchain/mint-nft"
