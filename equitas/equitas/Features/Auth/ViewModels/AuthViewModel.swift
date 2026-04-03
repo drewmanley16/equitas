@@ -22,8 +22,8 @@ final class AuthViewModel {
             let authService = AuthService()
             do {
                 try authService.signIn(with: credential)
-                // Go to Face ID lock screen — BiometricLockView auto-triggers
-                appState.authState = .lockedAuthenticated
+                // First sign-in: go straight in — Face ID is only for returning users
+                appState.authState = .unlocked
             } catch {
                 self.error = error.localizedDescription
             }
@@ -36,8 +36,8 @@ final class AuthViewModel {
         }
     }
 
-    /// DEBUG only — bypasses Apple ID for simulator testing
+    /// DEBUG only — bypasses Apple ID, goes straight in as a first-time user
     func signInWithDemoMode(appState: AppState) {
-        appState.authState = .lockedAuthenticated
+        appState.authState = .unlocked
     }
 }

@@ -31,18 +31,28 @@ struct BiometricLockView: View {
                 .purpleGlow(radius: 30)
 
                 VStack(spacing: 8) {
-                    Text("Unlock Equitas")
+                    Text("Welcome back")
                         .font(EquitasTheme.titleFont)
                         .foregroundStyle(EquitasTheme.textPrimary)
-                    Text("Authenticate to access your wallet")
+                    Text("Use Face ID to unlock your wallet")
                         .font(EquitasTheme.bodyFont)
                         .foregroundStyle(EquitasTheme.textSecondary)
                 }
 
                 Spacer()
 
-                PrimaryButton(title: "Use Face ID", icon: "faceid", style: .gold) {
-                    Task { await unlock() }
+                VStack(spacing: 12) {
+                    PrimaryButton(title: "Use Face ID", icon: "faceid", style: .gold) {
+                        Task { await unlock() }
+                    }
+
+                    #if DEBUG
+                    Button("Skip Face ID (Demo)") {
+                        appState.authState = .unlocked
+                    }
+                    .font(EquitasTheme.captionFont)
+                    .foregroundStyle(EquitasTheme.gold.opacity(0.6))
+                    #endif
                 }
                 .padding(.horizontal, EquitasTheme.screenPadding)
                 .padding(.bottom, 52)
