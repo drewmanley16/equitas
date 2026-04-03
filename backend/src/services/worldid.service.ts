@@ -1,38 +1,54 @@
-import { v4 as uuidv4 } from 'uuid';
+import { signRequest } from '@worldcoin/idkit-core/signing';
 import { config } from '../config';
 
-// OIDC redirect URI — must be registered in World ID developer portal
+const legacySessions = new Map<string, { status: 'pending' | 'success' | 'failed'; proof?: any }>();
 const OIDC_REDIRECT_URI = 'equitas://worldid-oidc-callback';
 
-// In-memory session store — replace with Redis for production
-const sessions = new Map<string, { status: 'pending' | 'success' | 'failed'; proof?: any }>();
+export function createRpContext() {
+  if (!config.worldID.rpID || !config.worldID.rpSigningKey) {
+    throw new Error('WORLDID_RP_ID and WORLDID_RP_SIGNING_KEY must be configured.');
+  }
 
-export function createSession(): string {
-  const nonce = uuidv4();
-  sessions.set(nonce, { status: 'pending' });
-  // Auto-expire after 10 minutes
-  setTimeout(() => sessions.delete(nonce), 10 * 60 * 1000);
+  const signature = signRequest(
+    {
+      action: config.worldID.action,
+      signingKeyHex: config.worldID.rpSigningKey,
+    }
+  );
+
+  return {
+    rp_id: config.worldID.rpID,
+    nonce: signature.nonce,
+    created_at: signature.createdAt,
+    expires_at: signature.expiresAt,
+    signature: signature.sig,
+  };
+}
+
+export function createLegacySession(): string {
+  const nonce = crypto.randomUUID();
+  legacySessions.set(nonce, { status: 'pending' });
+  setTimeout(() => legacySessions.delete(nonce), 10 * 60 * 1000);
   return nonce;
 }
 
-/** Create-or-update a session keyed by a caller-supplied nonce (for OIDC flow). */
-export function upsertSession(nonce: string): void {
-  if (!sessions.has(nonce)) {
-    sessions.set(nonce, { status: 'pending' });
-    setTimeout(() => sessions.delete(nonce), 10 * 60 * 1000);
+export function getLegacySession(nonce: string) {
+  return legacySessions.get(nonce);
+}
+
+export function upsertLegacySession(nonce: string): void {
+  if (!legacySessions.has(nonce)) {
+    legacySessions.set(nonce, { status: 'pending' });
+    setTimeout(() => legacySessions.delete(nonce), 10 * 60 * 1000);
   }
 }
 
-export function getSession(nonce: string) {
-  return sessions.get(nonce);
+export function resolveLegacySession(nonce: string, proofData: any) {
+  legacySessions.set(nonce, { status: 'success', proof: proofData });
 }
 
-export function resolveSession(nonce: string, proofData: any) {
-  sessions.set(nonce, { status: 'success', proof: proofData });
-}
-
-export function failSession(nonce: string) {
-  sessions.set(nonce, { status: 'failed' });
+export function failLegacySession(nonce: string) {
+  legacySessions.set(nonce, { status: 'failed' });
 }
 
 export async function exchangeOIDCCode(code: string, codeVerifier: string): Promise<{
@@ -62,7 +78,6 @@ export async function exchangeOIDCCode(code: string, codeVerifier: string): Prom
   const data = await res.json() as any;
   if (!data.id_token) throw new Error('No id_token in OIDC response');
 
-  // Decode JWT payload (base64url, no signature verification needed — trusted issuer)
   const parts = (data.id_token as string).split('.');
   if (parts.length < 2) throw new Error('Malformed id_token');
   const padded = parts[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -71,12 +86,36 @@ export async function exchangeOIDCCode(code: string, codeVerifier: string): Prom
   const wldClaims = payload['https://id.worldcoin.org/v1'] ?? {};
   return {
     nullifier_hash: payload.sub as string,
-    merkle_root:    wldClaims.merkle_root,
+    merkle_root: wldClaims.merkle_root,
     credential_type: wldClaims.credential_type,
   };
 }
 
-export async function verifyProofWithWorldID(params: {
+export async function verifyIDKitPayload(payload: unknown) {
+  if (!config.worldID.rpID) {
+    throw new Error('WORLDID_RP_ID must be configured.');
+  }
+
+  const url = `https://developer.world.org/api/v4/verify/${config.worldID.rpID}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+
+  return res.json() as Promise<{
+    success: boolean;
+    nullifier?: string;
+    session_id?: string;
+    message?: string;
+  }>;
+}
+
+export async function verifyLegacyProofWithWorldID(params: {
   proof: string;
   merkle_root: string;
   nullifier_hash: string;
@@ -93,7 +132,7 @@ export async function verifyProofWithWorldID(params: {
 
   if (!res.ok) {
     const err = await res.text();
-    console.error('World ID verify error:', err);
+    console.error('World ID legacy verify error:', err);
     return false;
   }
 
