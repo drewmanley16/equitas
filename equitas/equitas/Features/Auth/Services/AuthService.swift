@@ -1,8 +1,8 @@
 import AuthenticationServices
 import Foundation
 
-actor AuthService {
-    func signIn(with credential: ASAuthorizationAppleIDCredential) async throws {
+@MainActor final class AuthService {
+    func signIn(with credential: ASAuthorizationAppleIDCredential) throws {
         let keychain = KeychainService()
         try keychain.save(credential.user, forKey: "appleUserID")
         // TODO: send identityToken to backend for verification

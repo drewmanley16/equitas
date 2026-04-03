@@ -62,7 +62,7 @@ struct AuthGateView: View {
                     SignInWithAppleButton(.signIn) { request in
                         viewModel.handleRequest(request)
                     } onCompletion: { result in
-                        Task { await viewModel.handleCompletion(result, appState: appState) }
+                        viewModel.handleCompletion(result, appState: appState)
                     }
                     .signInWithAppleButtonStyle(.white)
                     .frame(height: 54)
@@ -71,6 +71,21 @@ struct AuthGateView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .strokeBorder(EquitasTheme.glassStroke, lineWidth: 1)
                     )
+
+                    #if DEBUG
+                    Button("Demo Mode (Simulator)") {
+                        viewModel.signInWithDemoMode(appState: appState)
+                    }
+                    .font(EquitasTheme.captionFont)
+                    .foregroundStyle(EquitasTheme.gold.opacity(0.7))
+                    #endif
+
+                    if let error = viewModel.error {
+                        Text(error)
+                            .font(EquitasTheme.captionFont)
+                            .foregroundStyle(.red.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                    }
 
                     Text("Your data never leaves your device.")
                         .font(EquitasTheme.captionFont)
