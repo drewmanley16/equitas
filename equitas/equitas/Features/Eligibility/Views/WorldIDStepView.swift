@@ -3,7 +3,7 @@ import SwiftUI
 struct WorldIDStepView: View {
     let viewModel: EligibilityViewModel
     @Environment(AppState.self) private var appState
-    @State private var showOIDCSafari = false
+    @Environment(\.openURL)    private var openURL
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -43,7 +43,9 @@ struct WorldIDStepView: View {
                         .frame(height: 80)
 
                 case .waitingForScan:
-                    WaitingForScanView(showSafari: $showOIDCSafari)
+                    if let url = viewModel.verificationURL {
+                        VerifyOptionsView(url: url, openURL: openURL)
+                    }
 
                 case .verifying:
                     VStack(spacing: 16) {
@@ -91,44 +93,74 @@ struct WorldIDStepView: View {
             .padding(.bottom, 32)
         }
         .task { await viewModel.startWorldIDVerification() }
-        // Open SFSafariViewController with World ID's hosted verification page
-        .sheet(isPresented: $showOIDCSafari) {
-            if let url = viewModel.oidcURL {
-                SafariView(url: url)
-                    .ignoresSafeArea()
-            }
-        }
-        // Receive OIDC callback from equitasApp.onOpenURL
-        .onChange(of: appState.pendingOIDCCallback) { _, url in
+        .onChange(of: appState.pendingWorldIDCallback) { _, url in
             guard let url else { return }
-            showOIDCSafari = false          // dismiss SFSafariViewController
-            appState.pendingOIDCCallback = nil
-            Task { await viewModel.handleOIDCCallback(url: url) }
+            appState.pendingWorldIDCallback = nil
+            Task { await viewModel.handleCallback(url: url) }
         }
     }
 }
 
-// MARK: - Waiting for scan
-private struct WaitingForScanView: View {
-    @Binding var showSafari: Bool
+// MARK: - Two verification options: QR code + button
+
+private struct VerifyOptionsView: View {
+    let url: URL
+    let openURL: OpenURLAction
+    @State private var showQR = true
 
     var body: some View {
         VStack(spacing: 20) {
-            // Open World ID hosted page — shows its own QR code
-            PrimaryButton(title: "Verify with World ID", icon: "globe", style: .gold) {
-                showSafari = true
+
+            // Option 1: QR code (scan with World App from any device)
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "qrcode")
+                        .foregroundStyle(EquitasTheme.purple)
+                    Text("Scan with World App")
+                        .font(EquitasTheme.headlineFont)
+                        .foregroundStyle(EquitasTheme.textPrimary)
+                }
+
+                if showQR {
+                    QRCodeView(content: url.absoluteString)
+                        .frame(width: 200, height: 200)
+                        .purpleGlow(radius: 16)
+                        .transition(.scale.combined(with: .opacity))
+                }
+
+                Button {
+                    withAnimation(.spring(response: 0.35)) { showQR.toggle() }
+                } label: {
+                    Text(showQR ? "Hide QR" : "Show QR")
+                        .font(EquitasTheme.captionFont)
+                        .foregroundStyle(EquitasTheme.textSecondary)
+                }
+            }
+            .padding(EquitasTheme.cardPadding)
+            .glassCard()
+
+            // Divider
+            HStack {
+                Rectangle().fill(EquitasTheme.textSecondary.opacity(0.3)).frame(height: 1)
+                Text("or").font(EquitasTheme.captionFont).foregroundStyle(EquitasTheme.textSecondary)
+                Rectangle().fill(EquitasTheme.textSecondary.opacity(0.3)).frame(height: 1)
             }
 
-            Text("A browser will open showing a QR code.\nScan it with the World App on any device.")
+            // Option 2: Open World App directly (same device)
+            PrimaryButton(title: "Authorize with World ID", icon: "globe", style: .gold) {
+                openURL(url)
+            }
+
+            Text("Opens World App if installed, or worldcoin.org in your browser.")
                 .font(EquitasTheme.captionFont)
-                .foregroundStyle(EquitasTheme.textSecondary)
+                .foregroundStyle(EquitasTheme.textSecondary.opacity(0.7))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 8)
         }
     }
 }
 
 // MARK: - Status badge
+
 private struct StatusBadge: View {
     let state: WorldIDState
 
@@ -159,12 +191,13 @@ private struct StatusBadge: View {
     }
 }
 
-// MARK: - How it works card
+// MARK: - How it works
+
 private struct HowItWorksCard: View {
     private let steps: [(String, String)] = [
-        ("1", "Tap \"Verify with World ID\" to open the verification page"),
-        ("2", "Scan the QR code with World App on any device"),
-        ("3", "World App generates a ZK proof — your data stays private"),
+        ("1", "Scan the QR with World App — or tap the button to open World App"),
+        ("2", "World App generates a ZK proof of your iris scan"),
+        ("3", "Proof verified on-chain — your data stays private"),
     ]
 
     var body: some View {
