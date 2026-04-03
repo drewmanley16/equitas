@@ -10,7 +10,7 @@ protocol ZKProofService {
     func generateProof(from hashes: HashedIncomeFields) async throws -> ZKProofResult
 }
 
-actor BackendZKProofService: ZKProofService {
+@MainActor final class BackendZKProofService: ZKProofService {
     func generateProof(from hashes: HashedIncomeFields) async throws -> ZKProofResult {
         let request = ZKProveRequest(
             grossHash: hashes.grossHash.hexString,

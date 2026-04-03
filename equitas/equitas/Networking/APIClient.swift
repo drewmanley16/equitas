@@ -1,6 +1,6 @@
 import Foundation
 
-actor APIClient {
+@MainActor final class APIClient {
     static let shared = APIClient()
     private let session = URLSession.shared
 
