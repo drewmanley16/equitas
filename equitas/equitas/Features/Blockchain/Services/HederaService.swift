@@ -1,6 +1,6 @@
 import Foundation
 
-actor HederaService {
+@MainActor final class HederaService {
     func mintEligibilityNFT(wallet: WalletCredentials) async throws -> HederaNFTMintResult {
         let request = HederaNFTMintRequest(
             walletAddress: wallet.address,

@@ -1,5 +1,13 @@
 import Foundation
 
+// MARK: - Proof (passed between steps in memory only)
+struct WorldIDProof {
+    let nullifierHash: String
+    let merkleRoot: String
+    let proof: String
+    let verificationLevel: String
+}
+
 // MARK: - Backend context response
 struct WorldIDContextResponse: Codable {
     let nonce: String

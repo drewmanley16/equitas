@@ -1,6 +1,6 @@
 import Foundation
 
-actor WalletService {
+@MainActor final class WalletService {
     private let keychain = KeychainService()
 
     func createOrLoadWallet() async throws -> WalletCredentials {
