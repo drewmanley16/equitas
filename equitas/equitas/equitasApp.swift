@@ -1,17 +1,14 @@
-//
-//  equitasApp.swift
-//  equitas
-//
-//  Created by Drew Manley on 4/3/26.
-//
-
 import SwiftUI
 
 @main
 struct equitasApp: App {
+    @State private var appState = AppState()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppRouter()
+                .environment(appState)
+                .preferredColorScheme(.dark)
         }
     }
 }

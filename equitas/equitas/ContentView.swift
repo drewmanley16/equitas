@@ -1,21 +1,12 @@
-//
-//  ContentView.swift
-//  equitas
-//
-//  Created by Drew Manley on 4/3/26.
-//
-
 import SwiftUI
 
+// ContentView retained for Xcode previews.
+// The live app entry point is AppRouter (see equitasApp.swift).
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        AppRouter()
+            .environment(AppState())
+            .preferredColorScheme(.dark)
     }
 }
 
