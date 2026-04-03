@@ -10,7 +10,13 @@ enum APIEndpoint {
     case issueTokens
     case generatePass
 
-    private static let baseURL = "https://api.equitas.app"  // replace with actual backend URL
+    private static let baseURL: String = {
+        #if DEBUG
+        return "http://localhost:3000"   // local backend (npm run dev in backend/)
+        #else
+        return "https://api.equitas.app" // Railway production URL — update after deploy
+        #endif
+    }()
 
     var url: URL {
         let path: String
