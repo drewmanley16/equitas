@@ -1,78 +1,43 @@
-import CryptoKit
 import Foundation
 
-/// Handles the World ID OIDC "proof of personhood" verification flow.
+/// Handles World ID proof-of-personhood verification.
 ///
-/// OIDC flow (works cross-device — simulator + real World App):
-///   1. generatePKCE()       → (verifier, challenge) stored on-device
-///   2. oidcAuthorizeURL()   → open in SFSafariViewController
-///   3. World ID page shows its own QR code
-///   4. User scans QR with World App on ANY device
-///   5. World ID redirects to equitas://worldid-oidc-callback?code=X&state=NONCE
-///   6. App receives URL via onOpenURL → calls exchangeOIDCCode()
-///   7. Backend exchanges code for id_token, extracts nullifier_hash
-///
-/// NOTE: Register equitas://worldid-oidc-callback as a redirect URI in
-///       https://developer.worldcoin.org before using in production.
+/// Flow:
+///   1. verificationURL(nonce:)  → URL with return_to=equitas://worldid-callback
+///   2. Show URL as QR  +  "Open World App" button (openURL)
+///   3. World App verifies → opens equitas://worldid-callback?proof=...
+///   4. parseCallback(_:)       → WorldIDProof
+///   5. verifyOnBackend(proof:nonce:) → confirmed on server
 @MainActor final class WorldIDService {
 
-    // MARK: - PKCE
+    // MARK: - Verification URL (QR + deep link)
 
-    /// Generates a PKCE (verifier, challenge) pair using CryptoKit SHA-256.
-    func generatePKCE() -> (verifier: String, challenge: String) {
-        var bytes = [UInt8](repeating: 0, count: 64)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        let verifier  = Data(bytes).base64URLEncoded()
-        let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URLEncoded()
-        return (verifier, challenge)
-    }
+    /// Builds a worldcoin.org/verify URL that World App understands.
+    /// Works as both a deep link (tap button) and a QR code (scan with World App).
+    func verificationURL(nonce: String) -> URL {
+        let returnTo = "equitas://worldid-callback?nonce=\(nonce)"
 
-    // MARK: - OIDC URL
-
-    /// Returns the World ID hosted verification URL.
-    /// Open this in SFSafariViewController — World ID renders its own QR.
-    ///
-    /// Uses explicit percent-encoding rather than URLComponents.queryItems
-    /// to avoid a known issue where URLComponents.url returns nil when a query
-    /// value contains "://" (e.g. the redirect_uri custom scheme).
-    func oidcAuthorizeURL(nonce: String, codeChallenge: String) -> URL? {
-        // Encode only unreserved characters; everything else gets percent-encoded.
+        // Percent-encode the return_to value (unreserved chars only)
         var allowed = CharacterSet.alphanumerics
         allowed.insert(charactersIn: "-._~")
+        let encoded = returnTo.addingPercentEncoding(withAllowedCharacters: allowed) ?? returnTo
 
-        let enc: (String) -> String = { str in
-            str.addingPercentEncoding(withAllowedCharacters: allowed) ?? str
-        }
+        let str = "https://worldcoin.org/verify"
+            + "?app_id=\(WorldIDConfig.appID)"
+            + "&action=\(WorldIDConfig.action)"
+            + "&signal="
+            + "&verification_level=\(WorldIDConfig.verificationLevel)"
+            + "&return_to=\(encoded)"
 
-        let params: [(String, String)] = [
-            ("client_id",             WorldIDConfig.appID),
-            ("redirect_uri",          "equitas://worldid-oidc-callback"),
-            ("response_type",         "code"),
-            ("scope",                 "openid"),
-            ("state",                 nonce),
-            ("nonce",                 nonce),
-            ("action",                WorldIDConfig.action),
-            ("code_challenge",        codeChallenge),
-            ("code_challenge_method", "S256"),
-        ]
-
-        let query = params
-            .map { "\(enc($0.0))=\(enc($0.1))" }
-            .joined(separator: "&")
-
-        let urlString = "https://id.worldcoin.org/authorize?\(query)"
-        #if DEBUG
-        print("[WorldID] OIDC URL: \(urlString)")
-        #endif
-        return URL(string: urlString)
+        return URL(string: str)!
     }
 
     // MARK: - Callback parsing
 
-    /// Extracts code + state from equitas://worldid-oidc-callback?code=X&state=Y
-    func parseOIDCCallback(_ url: URL) -> (code: String, state: String)? {
+    /// Parses equitas://worldid-callback?proof=X&merkle_root=Y&nullifier_hash=Z
+    func parseCallback(_ url: URL) -> WorldIDProof? {
         guard url.scheme == "equitas",
-              url.host   == "worldid-oidc-callback",
+              url.host == "worldid-callback",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let items = components.queryItems else { return nil }
 
@@ -81,20 +46,33 @@ import Foundation
             return (item.name, value)
         })
 
-        guard let code  = params["code"],
-              let state = params["state"] else { return nil }
-        return (code, state)
+        guard let proof         = params["proof"],
+              let merkleRoot    = params["merkle_root"],
+              let nullifierHash = params["nullifier_hash"] else { return nil }
+
+        return WorldIDProof(
+            nullifierHash:     nullifierHash,
+            merkleRoot:        merkleRoot,
+            proof:             proof,
+            verificationLevel: params["verification_level"] ?? WorldIDConfig.verificationLevel
+        )
     }
 
-    // MARK: - Backend token exchange
+    // MARK: - Backend verification
 
-    /// Sends the OIDC auth code + PKCE verifier to the backend.
-    /// Backend exchanges for id_token, extracts nullifier_hash.
-    func exchangeOIDCCode(code: String, nonce: String, codeVerifier: String) async throws -> WorldIDOIDCExchangeResponse {
-        let request = WorldIDOIDCExchangeRequest(code: code, state: nonce, codeVerifier: codeVerifier)
-        return try await APIClient.shared.post(
-            endpoint: .worldIDOIDCExchange,
+    func verifyOnBackend(proof: WorldIDProof, nonce: String) async throws -> Bool {
+        let request = WorldIDVerifyRequest(
+            proof:             proof.proof,
+            merkleRoot:        proof.merkleRoot,
+            nullifierHash:     proof.nullifierHash,
+            verificationLevel: proof.verificationLevel,
+            nonce:             nonce
+        )
+        let response: WorldIDVerifyResponse = try await APIClient.shared.post(
+            endpoint: .worldIDVerify,
             body: request
         )
+        guard response.verified else { throw WorldIDError.verificationFailed }
+        return true
     }
 }

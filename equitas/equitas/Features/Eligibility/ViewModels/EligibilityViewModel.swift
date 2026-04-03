@@ -15,12 +15,12 @@ enum ProcessingStatus {
 @Observable
 @MainActor
 final class EligibilityViewModel {
-    var currentStep: VerificationStep = .worldID
-    var worldIDState: WorldIDState    = .idle
-    var isProvingIncome               = false
+    var currentStep:     VerificationStep = .worldID
+    var worldIDState:    WorldIDState     = .idle
+    var isProvingIncome                   = false
 
-    /// The World ID OIDC URL — open this in SFSafariViewController
-    var oidcURL: URL?
+    /// URL shown as QR code and opened by the "Open World App" button
+    var verificationURL: URL?
 
     // Processing sub-step statuses
     var walletStatus:  ProcessingStatus = .pending
@@ -28,11 +28,10 @@ final class EligibilityViewModel {
     var nftStatus:     ProcessingStatus = .pending
     var tokenStatus:   ProcessingStatus = .pending
 
-    // Held in memory only — never persisted
-    private var worldIDProof:  WorldIDOIDCExchangeResponse?
+    // In-memory only
+    private var worldIDProof:  WorldIDProof?
     private var zkProofResult: ZKProofResult?
     private var activeNonce:   String?
-    private var codeVerifier:  String?
     private let service = WorldIDService()
 
     var stepIndex: Int {
@@ -43,43 +42,26 @@ final class EligibilityViewModel {
         }
     }
 
-    // MARK: - World ID OIDC
+    // MARK: - World ID
 
-    /// Generates PKCE pair, builds OIDC URL, sets state to .waitingForScan.
-    /// The view should then show a button to open oidcURL in SFSafariViewController.
     func startWorldIDVerification() async {
         worldIDState = .fetchingContext
-
         let nonce = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-        let (verifier, challenge) = service.generatePKCE()
-
-        activeNonce  = nonce
-        codeVerifier = verifier
-        guard let url = service.oidcAuthorizeURL(nonce: nonce, codeChallenge: challenge) else {
-            worldIDState = .failed(WorldIDError.contextFetchFailed)
-            return
-        }
-        oidcURL      = url
-        worldIDState = .waitingForScan
+        activeNonce     = nonce
+        verificationURL = service.verificationURL(nonce: nonce)
+        worldIDState    = .waitingForScan
     }
 
-    /// Called by the view when equitas://worldid-oidc-callback is received.
-    func handleOIDCCallback(url: URL) async {
-        guard let (code, state) = service.parseOIDCCallback(url),
-              let verifier = codeVerifier,
-              state == activeNonce else { return }
-
+    /// Called when equitas://worldid-callback arrives via onOpenURL
+    func handleCallback(url: URL) async {
+        guard let proof = service.parseCallback(url),
+              let nonce = activeNonce else { return }
         worldIDState = .verifying
         do {
-            let response = try await service.exchangeOIDCCode(
-                code: code, nonce: state, codeVerifier: verifier
-            )
-            guard response.verified else { throw WorldIDError.verificationFailed }
-            worldIDProof = response
-            // Zero out sensitive PKCE material
-            codeVerifier = nil
+            _ = try await service.verifyOnBackend(proof: proof, nonce: nonce)
+            worldIDProof = proof
             worldIDState = .verified
-            try? await Task.sleep(nanoseconds: 1_200_000_000) // 1.2 s to show ✓
+            try? await Task.sleep(nanoseconds: 1_200_000_000) // show ✓ briefly
             currentStep  = .incomeVerification
         } catch {
             worldIDState = .failed(error)
@@ -98,9 +80,7 @@ final class EligibilityViewModel {
             let hashes = hasher.hash(fields)
             let result = try await prover.generateProof(from: hashes)
             isProvingIncome = false
-            guard result.isValid else {
-                throw ZKProofError.invalidProof
-            }
+            guard result.isValid else { throw ZKProofError.invalidProof }
             zkProofResult = result
             currentStep = .processing
         } catch {
@@ -110,7 +90,7 @@ final class EligibilityViewModel {
     }
 
     func startBankLink() async {
-        // TODO: implement Plaid/MX OAuth bank link flow
+        // TODO: Plaid/MX OAuth
     }
 
     // MARK: - Blockchain orchestration
@@ -168,8 +148,8 @@ enum WorldIDState: Equatable {
     var statusLabel: String {
         switch self {
         case .idle:            return ""
-        case .fetchingContext: return "Preparing verification…"
-        case .waitingForScan:  return "Ready — tap to verify"
+        case .fetchingContext: return "Preparing…"
+        case .waitingForScan:  return "Waiting for World App scan"
         case .verifying:       return "Verifying proof…"
         case .verified:        return "Identity verified!"
         case .failed:          return "Verification failed"
