@@ -31,6 +31,8 @@ final class EligibilityViewModel {
     private var worldIDProof: WorldIDProof?
     private var zkProofResult: ZKProofResult?
     private var pollTask: Task<Void, Never>?
+    private var activeNonce: String?
+    private let service = WorldIDService()
 
     var stepIndex: Int {
         switch currentStep {
@@ -43,34 +45,32 @@ final class EligibilityViewModel {
     // MARK: - World ID
 
     func startWorldIDVerification() async {
-        let service = WorldIDService()
         worldIDState = .fetchingContext
-
         do {
             let context = try await service.fetchContext()
+            activeNonce         = context.nonce
             worldIDConnectorURL = service.connectorURL(context: context)
             worldIDDeepLinkURL  = service.deepLinkURL(context: context)
             worldIDState = .waitingForScan
-
-            // Start polling in background — don't block the UI
-            pollTask = Task {
-                do {
-                    let proof = try await service.pollUntilComplete(nonce: context.nonce)
-                    worldIDState = .verifying
-                    _ = try await service.verifyOnBackend(proof: proof, nonce: context.nonce)
-                    worldIDProof = proof
-                    worldIDState = .verified
-                    currentStep = .incomeVerification
-                } catch is CancellationError {
-                    // User navigated away
-                } catch {
-                    worldIDState = .failed(error)
-                    currentStep = .failed(error)
-                }
-            }
         } catch {
             worldIDState = .failed(error)
             currentStep = .failed(error)
+        }
+    }
+
+    /// Called by equitasApp.onOpenURL when World App returns the proof
+    func handleWorldIDCallback(url: URL) async {
+        guard let proof = service.parseCallback(url),
+              let nonce = activeNonce else { return }
+        worldIDState = .verifying
+        do {
+            _ = try await service.verifyOnBackend(proof: proof, nonce: nonce)
+            worldIDProof = proof
+            worldIDState = .verified
+            currentStep  = .incomeVerification
+        } catch {
+            worldIDState = .failed(error)
+            currentStep  = .failed(error)
         }
     }
 

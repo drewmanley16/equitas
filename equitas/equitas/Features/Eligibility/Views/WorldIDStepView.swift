@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorldIDStepView: View {
     let viewModel: EligibilityViewModel
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -90,6 +91,11 @@ struct WorldIDStepView: View {
         }
         .task { await viewModel.startWorldIDVerification() }
         .onDisappear { viewModel.cancelWorldIDPolling() }
+        .onChange(of: appState.pendingWorldIDCallback) { _, url in
+            guard let url else { return }
+            appState.pendingWorldIDCallback = nil
+            Task { await viewModel.handleWorldIDCallback(url: url) }
+        }
     }
 }
 

@@ -9,6 +9,12 @@ struct equitasApp: App {
             AppRouter()
                 .environment(appState)
                 .preferredColorScheme(.dark)
+                .onOpenURL { url in
+                    // World App calls back to equitas://worldid-callback?proof=...
+                    if url.scheme == "equitas" && url.host == "worldid-callback" {
+                        appState.pendingWorldIDCallback = url
+                    }
+                }
         }
     }
 }
