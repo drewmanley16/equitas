@@ -1,50 +1,46 @@
 import Foundation
 
-enum APIClientError: Error {
-    case invalidBaseURL
-    case badStatus(Int)
-    case decoding
+private struct APIErrorResponse: Decodable {
+    let error: String
 }
 
-final class APIClient: @unchecked Sendable {
+@MainActor final class APIClient {
     static let shared = APIClient()
+    private let session = URLSession.shared
 
-    private init() {}
-
-    /// Base URL for the Equitas backend (simulator: Mac loopback).
-    private var baseURL: URL {
-        if let s = Bundle.main.object(forInfoDictionaryKey: "EquitasAPIBaseURL") as? String,
-           let u = URL(string: s), !s.isEmpty {
-            return u
+    func post<Body: Encodable, Response: Decodable>(
+        endpoint: APIEndpoint,
+        body: Body
+    ) async throws -> Response {
+        var request = URLRequest(url: endpoint.url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.badStatus(0)
         }
-        return URL(string: "http://127.0.0.1:3000")!
+        guard (200..<300).contains(http.statusCode) else {
+            if let apiError = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
+                throw APIError.serverMessage(http.statusCode, apiError.error)
+            }
+            throw APIError.badStatus(http.statusCode)
+        }
+        return try JSONDecoder().decode(Response.self, from: data)
     }
 
-    private func url(for endpoint: APIEndpoint) throws -> URL {
-        guard let u = URL(string: endpoint.path, relativeTo: baseURL) else { throw APIClientError.invalidBaseURL }
-        return u.absoluteURL
-    }
-
-    func post<T: Encodable, R: Decodable>(endpoint: APIEndpoint, body: T) async throws -> R {
-        let url = try url(for: endpoint)
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONEncoder().encode(body)
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIClientError.badStatus(-1) }
-        guard (200 ... 299).contains(http.statusCode) else { throw APIClientError.badStatus(http.statusCode) }
-        let dec = JSONDecoder()
-        return try dec.decode(R.self, from: data)
-    }
-
-    func get<R: Decodable>(endpoint: APIEndpoint) async throws -> R {
-        let url = try url(for: endpoint)
-        var req = URLRequest(url: url)
-        req.httpMethod = "GET"
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIClientError.badStatus(-1) }
-        guard (200 ... 299).contains(http.statusCode) else { throw APIClientError.badStatus(http.statusCode) }
-        return try JSONDecoder().decode(R.self, from: data)
+    func get<Response: Decodable>(endpoint: APIEndpoint) async throws -> Response {
+        let request = URLRequest(url: endpoint.url)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.badStatus(0)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            if let apiError = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
+                throw APIError.serverMessage(http.statusCode, apiError.error)
+            }
+            throw APIError.badStatus(http.statusCode)
+        }
+        return try JSONDecoder().decode(Response.self, from: data)
     }
 }

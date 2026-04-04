@@ -1,22 +1,28 @@
 import Foundation
 
 extension Data {
-    nonisolated var hexString: String {
+    var hexString: String {
         map { String(format: "%02x", $0) }.joined()
     }
 
-    nonisolated init?(hexString: String) {
-        let len = hexString.count
-        guard len % 2 == 0 else { return nil }
+    init?(hexString: String) {
+        let hex = hexString.hasPrefix("0x") ? String(hexString.dropFirst(2)) : hexString
+        guard hex.count.isMultiple(of: 2) else { return nil }
         var data = Data()
-        data.reserveCapacity(len / 2)
-        var idx = hexString.startIndex
-        while idx < hexString.endIndex {
-            let next = hexString.index(idx, offsetBy: 2)
-            guard let byte = UInt8(hexString[idx..<next], radix: 16) else { return nil }
+        var index = hex.startIndex
+        while index < hex.endIndex {
+            let next = hex.index(index, offsetBy: 2)
+            guard let byte = UInt8(hex[index..<next], radix: 16) else { return nil }
             data.append(byte)
-            idx = next
+            index = next
         }
         self = data
+    }
+
+    func base64URLEncoded() -> String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=",  with: "")
     }
 }
