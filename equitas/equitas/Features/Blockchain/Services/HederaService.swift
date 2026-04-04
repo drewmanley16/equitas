@@ -18,7 +18,9 @@ import Foundation
         return HederaNFTMintResult(
             tokenId: response.hederaTokenId,
             serialNumber: response.serialNumber,
-            transactionId: response.txId
+            transactionId: response.txId,
+            hederaAccountId: response.hederaAccountId,
+            createdRecipientAccount: response.createdRecipientAccount ?? false
         )
     }
 }

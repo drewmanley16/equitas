@@ -25,6 +25,8 @@ router.post('/mint-nft', async (req: Request, res: Response) => {
       hederaTokenId: result.tokenId,
       serialNumber:  result.serialNumber,
       txId:          result.txId,
+      hederaAccountId: result.recipientAccountId,
+      createdRecipientAccount: result.createdRecipientAccount,
     });
   } catch (err: any) {
     console.error('Hedera mint error:', err);
