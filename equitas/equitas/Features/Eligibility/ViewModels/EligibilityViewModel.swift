@@ -19,6 +19,8 @@ final class EligibilityViewModel {
     var currentStep:     VerificationStep = .worldID
     var worldIDState:    WorldIDState     = .idle
     var isProvingIncome                   = false
+    var zkEmployer:   String?             = nil
+    var zkPayPeriod:  String?             = nil
 
     /// URL shown as QR code and opened by the "Open World App" button
     var verificationURL: URL?
@@ -94,23 +96,26 @@ final class EligibilityViewModel {
 
     // MARK: - Income ZK proof
 
-    func startDocumentScan() async {
-        let scanner = DocumentScannerService()
-        let hasher  = IncomeHashingService()
-        let prover  = BackendZKProofService()
+    /// Primary path: user picks a PDF paystub — backend parses + proves eligibility.
+    func uploadDocument(url: URL) async {
+        isProvingIncome = true
         do {
-            let fields = try await scanner.scanPaystub()
-            isProvingIncome = true
-            let hashes = hasher.hash(fields)
-            let result = try await prover.generateProof(from: hashes)
+            let prover = DocumentZKProofService()
+            let result = try await prover.prove(documentURL: url)
             isProvingIncome = false
-            guard result.isValid else { throw ZKProofError.invalidProof }
+            zkEmployer  = result.employer
+            zkPayPeriod = result.payPeriod
             zkProofResult = result
             currentStep = .processing
         } catch {
             isProvingIncome = false
             currentStep = .failed(error)
         }
+    }
+
+    /// Placeholder — camera scanning not yet implemented.
+    func startDocumentScan() async {
+        currentStep = .failed(DocumentScannerError.scanningNotAvailable)
     }
 
     func startBankLink() async {
@@ -263,7 +268,3 @@ enum WorldIDState: Equatable {
     }
 }
 
-enum ZKProofError: Error, LocalizedError {
-    case invalidProof
-    var errorDescription: String? { "Income proof could not be verified." }
-}
