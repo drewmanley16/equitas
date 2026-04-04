@@ -1,5 +1,6 @@
 import SwiftUI
 import IDKit
+import UIKit
 
 enum VerificationStep {
     case worldID
@@ -21,7 +22,9 @@ final class EligibilityViewModel {
     var isProvingIncome                   = false
     var zkEmployer:   String?             = nil
     var zkPayPeriod:  String?             = nil
+    var zkBenefitTier: String?            = nil
     var isDemoEligibilityFlow            = false
+    var shouldSkipBlockchainInDemo       = false
 
     /// URL shown as QR code and opened by the "Open World App" button
     var verificationURL: URL?
@@ -100,6 +103,7 @@ final class EligibilityViewModel {
     /// Primary path: user picks a PDF paystub — backend parses + proves eligibility.
     func uploadDocument(url: URL) async {
         isDemoEligibilityFlow = false
+        shouldSkipBlockchainInDemo = false
         isProvingIncome = true
         do {
             let prover = DocumentZKProofService()
@@ -107,6 +111,7 @@ final class EligibilityViewModel {
             isProvingIncome = false
             zkEmployer  = result.employer
             zkPayPeriod = result.payPeriod
+            zkBenefitTier = result.benefitTier
             zkProofResult = result
             currentStep = .processing
         } catch {
@@ -117,6 +122,7 @@ final class EligibilityViewModel {
 
     func useDemoPaystub() {
         isDemoEligibilityFlow = true
+        shouldSkipBlockchainInDemo = true
         isProvingIncome = true
 
         let result = ZKProofResult(
@@ -128,14 +134,27 @@ final class EligibilityViewModel {
             ],
             isValid: true,
             employer: "Acme Grocery Co.",
-            payPeriod: "biweekly"
+            payPeriod: "biweekly",
+            benefitAtomic: "300000000",
+            benefitTier: "tier_mid"
         )
 
         zkEmployer = result.employer
         zkPayPeriod = result.payPeriod
+        zkBenefitTier = result.benefitTier
         zkProofResult = result
         isProvingIncome = false
         currentStep = .processing
+    }
+
+    func useDemoPaystubForOnchainTesting() async {
+        do {
+            let url = try createSamplePaystubPDF()
+            await uploadDocument(url: url)
+        } catch {
+            isProvingIncome = false
+            currentStep = .failed(error)
+        }
     }
 
     /// Placeholder — camera scanning not yet implemented.
@@ -150,7 +169,7 @@ final class EligibilityViewModel {
     // MARK: - Blockchain orchestration
 
     func runBlockchainOrchestration() async {
-        if isDemoEligibilityFlow {
+        if isDemoEligibilityFlow && shouldSkipBlockchainInDemo {
             walletStatus = .inProgress
             try? await Task.sleep(nanoseconds: 300_000_000)
             walletStatus = .complete
@@ -175,6 +194,8 @@ final class EligibilityViewModel {
         let circlesService = CirclesWalletService()
         let hederaService   = HederaService()
         let benefitsService = SNAPBenefitsService()
+        let activityStore = WalletActivityStore()
+        let keychain = KeychainService()
 
         guard let proofHash = currentProofHash else {
             currentStep = .failed(EligibilityAttestationError.missingIncomeProof)
@@ -200,13 +221,26 @@ final class EligibilityViewModel {
                 proofHash: proofHash,
                 worldIDNullifier: worldIDNullifier
             )
+            try? keychain.save(nftResult.tokenId, forKey: "hederaTokenId")
+            try? keychain.save(String(nftResult.serialNumber), forKey: "hederaSerialNumber")
+            try? keychain.save(nftResult.transactionId, forKey: "hederaTransactionId")
+            try? keychain.save(ISO8601DateFormatter().string(from: Date()), forKey: "hederaIssuedAt")
+            if let hederaAccountId = nftResult.hederaAccountId {
+                try? keychain.save(hederaAccountId, forKey: "hederaAccountId")
+            }
             nftStatus = .complete
 
             benefitsFundingStatus = .inProgress
-            try await benefitsService.fundBenefitsAfterEligibility(
+            let fundingResult = try await benefitsService.fundBenefitsAfterEligibility(
                 walletAddress: wallet.address,
+                hederaTokenId: nftResult.tokenId,
                 nftSerial: nftResult.serialNumber,
-                proofHash: proofHash
+            )
+            activityStore.recordFunding(
+                amountAtomic: fundingResult.allowanceAtomic,
+                txHash: fundingResult.depositTxHash,
+                txExplorerURL: fundingResult.depositExplorerURL,
+                benefitTier: fundingResult.benefitTier
             )
             benefitsFundingStatus = .complete
 
@@ -329,6 +363,46 @@ final class EligibilityViewModel {
             }
         }
         return nil
+    }
+
+    private func createSamplePaystubPDF() throws -> URL {
+        let pageRect = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("equitas-demo-paystub")
+            .appendingPathExtension("pdf")
+
+        let data = renderer.pdfData { context in
+            context.beginPage()
+
+            let titleAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 24),
+            ]
+            let bodyAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 16),
+            ]
+
+            let lines = [
+                "ACME GROCERY CO.",
+                "Employee: Jane Doe",
+                "Pay Period: Biweekly",
+                "Gross Pay: $900.00",
+                "Net Pay: $742.18",
+                "Pay Date: 04/04/2026",
+            ]
+
+            NSString(string: "Sample Paystub").draw(at: CGPoint(x: 72, y: 72), withAttributes: titleAttributes)
+
+            for (index, line) in lines.enumerated() {
+                NSString(string: line).draw(
+                    at: CGPoint(x: 72, y: 140 + CGFloat(index * 30)),
+                    withAttributes: bodyAttributes
+                )
+            }
+        }
+
+        try data.write(to: url, options: .atomic)
+        return url
     }
 }
 

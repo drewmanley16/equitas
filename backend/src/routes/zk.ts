@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
+import { deriveBenefitFromIncome, registerIncomeAttestation } from '../services/attestation.service';
 import { parseIncomeFromDocument } from '../services/incomeparser.service';
 import { generateIncomeProof } from '../services/zkproof.service';
 
@@ -28,6 +29,16 @@ router.post('/prove', upload.single('document'), async (req: Request, res: Respo
   try {
     const parsed = await parseIncomeFromDocument(req.file.buffer, req.file.mimetype);
     const proof  = generateIncomeProof(parsed.grossMonthly);
+    const benefit = deriveBenefitFromIncome(parsed.grossMonthly);
+
+    registerIncomeAttestation({
+      proofHash: proof.commitment,
+      grossMonthlyCents: benefit.grossMonthlyCents,
+      benefitAtomic: benefit.benefitAtomic,
+      benefitTier: benefit.benefitTier,
+      eligible: proof.eligible,
+      createdAt: Date.now(),
+    });
 
     if (!proof.eligible) {
       // Still return the proof — the app will handle ineligibility messaging
@@ -43,6 +54,8 @@ router.post('/prove', upload.single('document'), async (req: Request, res: Respo
       // Non-sensitive metadata for display in the app
       payPeriod:     parsed.payPeriod,
       employer:      parsed.employer,
+      benefitAtomic: benefit.benefitAtomic,
+      benefitTier:   benefit.benefitTier,
     });
   } catch (err: any) {
     console.error('ZK prove error:', err.message);

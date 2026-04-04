@@ -2,8 +2,8 @@ import SwiftUI
 
 struct AccountRootView: View {
     @Environment(AppState.self) private var appState
+    @State private var viewModel = AccountViewModel()
     @State private var shimmerOffset: CGFloat = -200
-    private let walletAddress = "0x4f3A…9c12"
 
     var body: some View {
         ZStack {
@@ -13,7 +13,11 @@ struct AccountRootView: View {
                 VStack(spacing: 20) {
 
                     // NFT eligibility card
-                    EligibilityNFTCard(shimmerOffset: shimmerOffset)
+                    EligibilityNFTCard(
+                        shimmerOffset: shimmerOffset,
+                        linkedNFT: viewModel.linkedNFT,
+                        shortenedAddress: viewModel.shortenedAddress
+                    )
                         .padding(.top, 8)
                         .onAppear {
                             withAnimation(.linear(duration: 2.4).repeatForever(autoreverses: false)) {
@@ -22,7 +26,7 @@ struct AccountRootView: View {
                         }
 
                     // Wallet address
-                    WalletAddressCard(address: walletAddress)
+                    WalletAddressCard(address: viewModel.shortenedAddress(viewModel.walletAddress))
 
                     // Linked programs
                     LinkedProgramsCard()
@@ -39,12 +43,15 @@ struct AccountRootView: View {
                     .foregroundStyle(EquitasTheme.textPrimary)
             }
         }
+        .task { viewModel.refresh() }
     }
 }
 
 // MARK: - Holographic NFT card
 struct EligibilityNFTCard: View {
     let shimmerOffset: CGFloat
+    let linkedNFT: LinkedHederaNFT?
+    let shortenedAddress: (String) -> String
 
     var body: some View {
         ZStack {
@@ -90,18 +97,18 @@ struct EligibilityNFTCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("SNAP ELIGIBILITY")
+                        Text("HEDERA ELIGIBILITY")
                             .font(.system(size: 10, weight: .bold, design: .rounded))
                             .tracking(3)
                             .foregroundStyle(EquitasTheme.gold.opacity(0.8))
-                        Text("Verified")
+                        Text(linkedNFT == nil ? "Not linked yet" : "Linked")
                             .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundStyle(EquitasTheme.textPrimary)
                     }
                     Spacer()
                     ZStack {
                         Circle().fill(EquitasTheme.gold.opacity(0.15)).frame(width: 52)
-                        Image(systemName: "checkmark.seal.fill")
+                        Image(systemName: linkedNFT == nil ? "seal" : "checkmark.seal.fill")
                             .font(.system(size: 28))
                             .foregroundStyle(EquitasTheme.goldGradient)
                             .goldGlow(radius: 12)
@@ -114,20 +121,36 @@ struct EligibilityNFTCard: View {
                             .font(.system(size: 9, weight: .medium, design: .rounded))
                             .tracking(2)
                             .foregroundStyle(EquitasTheme.textSecondary)
-                        Text("#0.0.4821 / Serial 7")
+                        Text(nftLabel)
                             .font(EquitasTheme.monoFont)
                             .foregroundStyle(EquitasTheme.gold.opacity(0.9))
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("ISSUED")
+                        Text(linkedNFT?.hederaAccountId == nil ? "ISSUED" : "ACCOUNT")
                             .font(.system(size: 9, weight: .medium, design: .rounded))
                             .tracking(2)
                             .foregroundStyle(EquitasTheme.textSecondary)
-                        Text("Apr 2026")
+                        Text(rightLabel)
                             .font(EquitasTheme.monoFont)
                             .foregroundStyle(EquitasTheme.textPrimary.opacity(0.8))
                     }
+                }
+
+                if let linkedNFT {
+                    HStack(spacing: 12) {
+                        if let tokenURL = linkedNFT.tokenExplorerURL {
+                            Link("View token", destination: tokenURL)
+                                .font(EquitasTheme.captionFont)
+                                .foregroundStyle(EquitasTheme.textPrimary)
+                        }
+                        if let txURL = linkedNFT.transactionExplorerURL {
+                            Link("View tx", destination: txURL)
+                                .font(EquitasTheme.captionFont)
+                                .foregroundStyle(EquitasTheme.textPrimary)
+                        }
+                    }
+                    .padding(.top, 14)
                 }
             }
             .padding(22)
@@ -135,6 +158,18 @@ struct EligibilityNFTCard: View {
         .frame(height: 200)
         .shadow(color: EquitasTheme.purple.opacity(0.4), radius: 28, y: 10)
         .clipShape(RoundedRectangle(cornerRadius: 24))
+    }
+
+    private var nftLabel: String {
+        guard let linkedNFT else { return "No token linked" }
+        return "#\(linkedNFT.tokenId) / Serial \(linkedNFT.serialNumber)"
+    }
+
+    private var rightLabel: String {
+        if let accountId = linkedNFT?.hederaAccountId {
+            return shortenedAddress(accountId)
+        }
+        return linkedNFT?.issuedLabel ?? "Pending"
     }
 }
 

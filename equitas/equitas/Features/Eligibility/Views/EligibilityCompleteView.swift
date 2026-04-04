@@ -4,26 +4,24 @@ struct EligibilityCompleteView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        VStack(spacing: 24) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.green)
-                .symbolEffect(.bounce)
+                .font(.system(size: 52))
+                .foregroundStyle(EquitasTheme.gold)
             VStack(spacing: 8) {
-                Text("You're Eligible!")
-                    .font(.largeTitle.bold())
-                Text("Your SNAP benefits are ready. Your eligibility NFT has been minted on Hedera.")
+                Text("Verification Complete")
+                    .font(EquitasTheme.titleFont)
+                    .foregroundStyle(EquitasTheme.textPrimary)
+                Text("Your eligibility NFT is ready and your benefits flow is unlocked.")
+                    .font(EquitasTheme.bodyFont)
+                    .foregroundStyle(EquitasTheme.textSecondary)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
             }
-            Spacer()
             PrimaryButton(title: "Go to Wallet") {
                 appState.eligibilityStatus = .complete
             }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 48)
         }
-        .padding(32)
+        .padding(EquitasTheme.cardPadding)
+        .glassCard()
     }
 }

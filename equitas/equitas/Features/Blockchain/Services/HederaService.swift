@@ -20,7 +20,9 @@ import Foundation
             serialNumber: response.serialNumber,
             transactionId: response.txId,
             hederaAccountId: response.hederaAccountId,
-            createdRecipientAccount: response.createdRecipientAccount ?? false
+            createdRecipientAccount: response.createdRecipientAccount ?? false,
+            allowanceAtomic: response.allowanceAtomic,
+            benefitTier: response.benefitTier
         )
     }
 }

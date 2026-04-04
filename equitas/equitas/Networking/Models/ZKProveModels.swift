@@ -14,4 +14,8 @@ struct ZKProveResponse: Codable {
     /// Non-sensitive display metadata
     let payPeriod: String?
     let employer: String?
+    /// Derived ARC funding amount in 6-decimal atomic units
+    let benefitAtomic: String?
+    /// Derived benefit tier for display and NFT metadata
+    let benefitTier: String?
 }

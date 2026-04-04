@@ -4,24 +4,23 @@ struct ProcessingStepView: View {
     let viewModel: EligibilityViewModel
 
     var body: some View {
-        VStack(spacing: 32) {
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 56))
-                .foregroundStyle(.orange)
-                .symbolEffect(.rotate, isActive: true)
-            Text("Setting Up Your Account")
-                .font(.title2.bold())
+        VStack(spacing: 24) {
+            Text("Finish Verification")
+                .font(EquitasTheme.titleFont)
+                .foregroundStyle(EquitasTheme.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
             VStack(alignment: .leading, spacing: 16) {
-                ProcessingRow(label: "Creating wallet", status: viewModel.walletStatus)
-                ProcessingRow(label: "Registering on ARC network", status: viewModel.circlesStatus)
-                ProcessingRow(label: "Minting eligibility NFT", status: viewModel.nftStatus)
-                ProcessingRow(label: "Funding SNAP benefits (USDC)", status: viewModel.benefitsFundingStatus)
+                ProcessingRow(label: "Create wallet", status: viewModel.walletStatus)
+                ProcessingRow(label: "Register ARC wallet", status: viewModel.circlesStatus)
+                ProcessingRow(label: "Mint Hedera NFT", status: viewModel.nftStatus)
+                ProcessingRow(label: "Fund USDC benefits", status: viewModel.benefitsFundingStatus)
             }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            Spacer()
+            .padding(EquitasTheme.cardPadding)
+            .glassCard()
         }
-        .padding(32)
+        .padding(EquitasTheme.cardPadding)
+        .glassCard()
         .task { await viewModel.runBlockchainOrchestration() }
     }
 }
@@ -31,15 +30,37 @@ struct ProcessingRow: View {
     let status: ProcessingStatus
 
     var body: some View {
-        HStack {
+        HStack(spacing: 14) {
+            indicator
+
             Text(label)
+                .font(EquitasTheme.bodyFont)
+                .foregroundStyle(EquitasTheme.textPrimary)
+
             Spacer()
-            switch status {
-            case .pending: Image(systemName: "circle").foregroundStyle(.secondary)
-            case .inProgress: ProgressView().scaleEffect(0.8)
-            case .complete: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-            case .failed: Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var indicator: some View {
+        switch status {
+        case .pending:
+            Circle()
+                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+                .frame(width: 20, height: 20)
+        case .inProgress:
+            ProgressView()
+                .tint(EquitasTheme.gold)
+                .frame(width: 20, height: 20)
+        case .complete:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(EquitasTheme.gold)
+                .font(.system(size: 20, weight: .semibold))
+        case .failed:
+            Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.red)
+                .font(.system(size: 20, weight: .semibold))
         }
     }
 }

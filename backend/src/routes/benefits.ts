@@ -8,6 +8,7 @@ import {
   payMerchantFromBeneficiary,
   setMerchantApproval,
 } from '../services/benefits.service';
+import { buildArcTxURL, getArcExplorerBaseURL } from '../services/explorer.service';
 
 const router = Router();
 
@@ -27,7 +28,14 @@ router.post('/approve-user', async (req: Request, res: Response) => {
       expiryTimestamp: expiryTimestamp == null ? null : String(expiryTimestamp),
     });
 
-    res.json({ ok: true, eligibilityTxHash: tx1.hash, allowanceTxHash: tx2.hash });
+    res.json({
+      ok: true,
+      eligibilityTxHash: tx1.hash,
+      allowanceTxHash: tx2.hash,
+      explorerBaseURL: getArcExplorerBaseURL(),
+      eligibilityExplorerURL: buildArcTxURL(tx1.hash),
+      allowanceExplorerURL: buildArcTxURL(tx2.hash),
+    });
   } catch (e: any) {
     console.error(e);
     res.status(500).json({ error: e.shortMessage ?? e.message ?? String(e) });
@@ -44,7 +52,12 @@ router.post('/deposit', async (req: Request, res: Response) => {
     if (amountAtomic === undefined) return res.status(400).json({ error: 'amountAtomic required' });
     const tx = await depositBenefits(String(amountAtomic));
 
-    res.json({ ok: true, txHash: tx.hash });
+    res.json({
+      ok: true,
+      txHash: tx.hash,
+      explorerBaseURL: getArcExplorerBaseURL(),
+      txExplorerURL: buildArcTxURL(tx.hash),
+    });
   } catch (e: any) {
     console.error(e);
     res.status(500).json({ error: e.shortMessage ?? e.message ?? String(e) });
@@ -62,7 +75,12 @@ router.post('/setup-merchant', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'merchantAddress and approved required' });
     }
     const tx = await setMerchantApproval({ merchantAddress, approved: Boolean(approved) });
-    res.json({ ok: true, txHash: tx.hash });
+    res.json({
+      ok: true,
+      txHash: tx.hash,
+      explorerBaseURL: getArcExplorerBaseURL(),
+      txExplorerURL: buildArcTxURL(tx.hash),
+    });
   } catch (e: any) {
     console.error(e);
     res.status(500).json({ error: e.shortMessage ?? e.message ?? String(e) });
@@ -83,7 +101,12 @@ router.post('/pay-merchant', async (req: Request, res: Response) => {
       merchantAddress,
       amountAtomic: String(amountAtomic),
     });
-    res.json({ ok: true, txHash: tx.hash });
+    res.json({
+      ok: true,
+      txHash: tx.hash,
+      explorerBaseURL: getArcExplorerBaseURL(),
+      txExplorerURL: buildArcTxURL(tx.hash),
+    });
   } catch (e: any) {
     console.error(e);
     res.status(500).json({ error: e.shortMessage ?? e.message ?? String(e) });

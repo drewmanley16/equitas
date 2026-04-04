@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { deriveBenefitTierFromAtomic, getIncomeAttestation } from './attestation.service';
 
 const SNAP_SPENDER_ABI = [
   'function approvedMerchants(address) view returns (bool)',
@@ -94,16 +95,28 @@ export async function issueBenefitsForEligibleUser(params: {
   userAddress: string;
   nftSerial: number;
   proofHash: string;
-  allowanceAtomic: string;
-  depositAtomic: string;
+  allowanceAtomic?: string;
+  depositAtomic?: string;
   expiryTimestamp?: string | null;
 }) {
+  const attestation = getIncomeAttestation(params.proofHash);
+  if (attestation && !attestation.eligible) {
+    throw new Error('Income attestation is not eligible for benefits.');
+  }
+
+  const allowanceAtomic = params.allowanceAtomic ?? attestation?.benefitAtomic;
+  const depositAtomic = params.depositAtomic ?? attestation?.benefitAtomic ?? allowanceAtomic;
+
+  if (!allowanceAtomic || !depositAtomic) {
+    throw new Error('No verified income attestation found for this proof hash.');
+  }
+
   const approval = await approveUserEligibility({
     userAddress: params.userAddress,
-    allowanceAtomic: params.allowanceAtomic,
+    allowanceAtomic,
     expiryTimestamp: params.expiryTimestamp,
   });
-  const deposit = await depositBenefits(params.depositAtomic);
+  const deposit = await depositBenefits(depositAtomic);
 
   return {
     approvalTxHash: approval.tx1.hash,
@@ -111,6 +124,8 @@ export async function issueBenefitsForEligibleUser(params: {
     depositTxHash: deposit.hash,
     nftSerial: params.nftSerial,
     proofHash: params.proofHash,
+    allowanceAtomic,
+    benefitTier: attestation?.benefitTier ?? deriveBenefitTierFromAtomic(allowanceAtomic),
   };
 }
 

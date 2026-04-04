@@ -7,6 +7,8 @@ struct ZKProofResult {
     let isValid: Bool
     let employer: String?
     let payPeriod: String?
+    let benefitAtomic: String?
+    let benefitTier: String?
 }
 
 protocol ZKProofService {
@@ -40,7 +42,9 @@ protocol ZKProofService {
             publicSignals: response.publicSignals,
             isValid: response.isValid,
             employer: response.employer,
-            payPeriod: response.payPeriod
+            payPeriod: response.payPeriod,
+            benefitAtomic: response.benefitAtomic,
+            benefitTier: response.benefitTier
         )
     }
 

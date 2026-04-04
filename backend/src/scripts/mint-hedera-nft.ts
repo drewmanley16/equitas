@@ -66,6 +66,8 @@ async function main() {
     walletAddress,
     proofHash,
     worldIDNullifier,
+    benefitAtomic: process.env.MINT_BENEFIT_ATOMIC || '300000000',
+    benefitTier: process.env.MINT_BENEFIT_TIER || 'tier_mid',
   });
 
   console.log('');

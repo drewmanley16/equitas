@@ -4,15 +4,15 @@ import Foundation
 actor SNAPBenefitsService {
     func fundBenefitsAfterEligibility(
         walletAddress: String,
+        hederaTokenId: String,
         nftSerial: Int,
-        proofHash: String
-    ) async throws {
-        let _: ARCIssueTokensResponse = try await APIClient.shared.post(
+    ) async throws -> ARCIssueTokensResponse {
+        try await APIClient.shared.post(
             endpoint: .issueTokens,
             body: ARCIssueTokensRequest(
                 walletAddress: walletAddress,
-                serialNumber: nftSerial,
-                proofHash: proofHash
+                hederaTokenId: hederaTokenId,
+                serialNumber: nftSerial
             )
         )
     }

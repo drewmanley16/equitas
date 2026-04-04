@@ -14,44 +14,14 @@ struct AuthGateView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Logo mark
-                ZStack {
-                    Circle()
-                        .fill(EquitasTheme.purple.opacity(0.25))
-                        .blur(radius: 30)
-                        .frame(width: 160, height: 160)
-                    Circle()
-                        .strokeBorder(EquitasTheme.goldGradient, lineWidth: 1.5)
-                        .frame(width: 110, height: 110)
-                    Image(systemName: "seal.fill")
-                        .font(.system(size: 52))
-                        .foregroundStyle(EquitasTheme.goldGradient)
-                }
-                .scaleEffect(logoScale)
-                .opacity(logoOpacity)
-                .goldGlow(radius: 28)
-                .padding(.bottom, 32)
+                Text("EQUITAS")
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .tracking(8)
+                    .foregroundStyle(EquitasTheme.textPrimary)
+                    .scaleEffect(logoScale)
+                    .opacity(logoOpacity)
+                    .padding(.bottom, 16)
 
-                // Wordmark
-                VStack(spacing: 6) {
-                    Text("EQUITAS")
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
-                        .tracking(8)
-                        .foregroundStyle(EquitasTheme.textPrimary)
-                    Text("Benefits, verified on-chain.")
-                        .font(EquitasTheme.bodyFont)
-                        .foregroundStyle(EquitasTheme.textSecondary)
-                        .tracking(1)
-                }
-                .opacity(logoOpacity)
-                .padding(.bottom, 16)
-
-                // Pill badges
-                HStack(spacing: 10) {
-                    BadgePill(label: "World ID")
-                    BadgePill(label: "ZK Proof")
-                    BadgePill(label: "Hedera NFT")
-                }
                 .opacity(logoOpacity)
 
                 Spacer()
@@ -86,10 +56,6 @@ struct AuthGateView: View {
                             .foregroundStyle(.red.opacity(0.8))
                             .multilineTextAlignment(.center)
                     }
-
-                    Text("Your data never leaves your device.")
-                        .font(EquitasTheme.captionFont)
-                        .foregroundStyle(EquitasTheme.textSecondary)
                 }
                 .padding(.horizontal, EquitasTheme.screenPadding)
                 .padding(.bottom, 52)
@@ -102,18 +68,5 @@ struct AuthGateView: View {
                 logoOpacity = 1.0
             }
         }
-    }
-}
-
-private struct BadgePill: View {
-    let label: String
-    var body: some View {
-        Text(label)
-            .font(EquitasTheme.captionFont)
-            .foregroundStyle(EquitasTheme.gold)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(EquitasTheme.gold.opacity(0.12), in: Capsule())
-            .overlay(Capsule().strokeBorder(EquitasTheme.gold.opacity(0.3), lineWidth: 1))
     }
 }

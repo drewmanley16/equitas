@@ -2,12 +2,12 @@ import SwiftUI
 
 enum EquitasTheme {
     // MARK: - Colors
-    static let background    = Color(red: 0.04, green: 0.00, blue: 0.08)
-    static let backgroundMid = Color(red: 0.08, green: 0.02, blue: 0.14)
+    static let background    = Color.black
+    static let backgroundMid = Color(red: 0.05, green: 0.05, blue: 0.05)
     static let gold          = Color(red: 0.83, green: 0.69, blue: 0.22)
     static let goldLight     = Color(red: 0.95, green: 0.85, blue: 0.50)
-    static let purple        = Color(red: 0.48, green: 0.31, blue: 1.00)
-    static let purpleDim     = Color(red: 0.30, green: 0.18, blue: 0.60)
+    static let purple        = Color.white.opacity(0.85)
+    static let purpleDim     = Color.white.opacity(0.25)
     static let glassStroke   = Color.white.opacity(0.12)
     static let textPrimary   = Color.white
     static let textSecondary = Color.white.opacity(0.55)
@@ -15,9 +15,9 @@ enum EquitasTheme {
     // MARK: - Gradients
     static let backgroundGradient = LinearGradient(
         colors: [
-            Color(red: 0.06, green: 0.01, blue: 0.12),
-            Color(red: 0.02, green: 0.00, blue: 0.06),
-            Color(red: 0.00, green: 0.00, blue: 0.02)
+            Color.black,
+            Color(red: 0.02, green: 0.02, blue: 0.02),
+            Color.black
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
@@ -30,7 +30,7 @@ enum EquitasTheme {
     )
 
     static let cardGradient = LinearGradient(
-        colors: [Color.white.opacity(0.08), Color.white.opacity(0.03)],
+        colors: [Color.white.opacity(0.05), Color.white.opacity(0.02)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -120,22 +120,9 @@ struct CosmicBackground: View {
     var body: some View {
         ZStack {
             EquitasTheme.backgroundGradient.ignoresSafeArea()
-            Circle()
-                .fill(EquitasTheme.purple.opacity(0.14))
-                .blur(radius: 90)
-                .frame(width: 320)
-                .offset(x: -90, y: -220)
-            Circle()
-                .fill(EquitasTheme.gold.opacity(0.06))
-                .blur(radius: 110)
-                .frame(width: 280)
-                .offset(x: 110, y: 220)
-            Circle()
-                .fill(EquitasTheme.purple.opacity(0.09))
-                .blur(radius: 70)
-                .frame(width: 200)
-                .offset(x: 130, y: -80)
-            StarFieldView()
+            Rectangle()
+                .fill(Color.black.opacity(0.82))
+                .ignoresSafeArea()
         }
     }
 }

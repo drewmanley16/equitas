@@ -14,6 +14,7 @@ import {
   PrivateKey,
   TokenId,
   NftId,
+  TokenNftInfoQuery,
 } from '@hashgraph/sdk';
 import { config } from '../config';
 
@@ -73,6 +74,29 @@ function requireHederaOperator(): { accountId: string; privateKey: string } {
 
 function normalizeWalletAddress(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function encodeProofHashForMetadata(proofHash: string): string {
+  const normalized = proofHash.trim().toLowerCase();
+  if (/^[0-9a-f]{64}$/.test(normalized)) {
+    return Buffer.from(normalized, 'hex').toString('base64url');
+  }
+  return proofHash.trim();
+}
+
+function decodeProofHashFromMetadata(encoded: string): string {
+  const normalized = encoded.trim();
+  if (/^[A-Za-z0-9_-]{43,44}$/.test(normalized)) {
+    try {
+      const bytes = Buffer.from(normalized, 'base64url');
+      if (bytes.length === 32) {
+        return bytes.toString('hex');
+      }
+    } catch {
+      // Fall through to raw value.
+    }
+  }
+  return normalized;
 }
 
 async function ensureRecipientAccount(walletAddress: string): Promise<{ account: HederaRecipientAccount; created: boolean }> {
@@ -210,6 +234,8 @@ export async function mintEligibilityNFT(params: {
   walletAddress: string;
   proofHash: string;
   worldIDNullifier: string;
+  benefitAtomic: string;
+  benefitTier: string;
 }): Promise<{ tokenId: string; serialNumber: number; txId: string; recipientAccountId: string; createdRecipientAccount: boolean }> {
   if (!config.hedera.tokenID) {
     throw new Error('Hedera testnet minting is not configured. Set HEDERA_TOKEN_ID, HEDERA_ACCOUNT_ID, and HEDERA_PRIVATE_KEY.');
@@ -220,8 +246,8 @@ export async function mintEligibilityNFT(params: {
   const client = getClient();
 
   const compactMetadata = JSON.stringify({
-    p: params.proofHash,
-    n: params.worldIDNullifier,
+    p: encodeProofHashForMetadata(params.proofHash),
+    a: params.benefitAtomic,
   });
   const metadata = Buffer.from(compactMetadata, 'utf8');
 
@@ -259,4 +285,49 @@ export async function mintEligibilityNFT(params: {
     recipientAccountId: recipientAccount.accountId,
     createdRecipientAccount: created,
   };
+}
+
+export type HederaEligibilityAttestation = {
+  proofHash: string;
+  benefitAtomic?: string;
+  tokenId: string;
+  serialNumber: number;
+};
+
+export async function readEligibilityNFTAttestation(params: {
+  tokenId: string;
+  serialNumber: number;
+}): Promise<HederaEligibilityAttestation> {
+  const client = getClient();
+  try {
+    const nftInfos = await new TokenNftInfoQuery()
+      .setNftId(new NftId(TokenId.fromString(params.tokenId), params.serialNumber))
+      .execute(client);
+
+    const nftInfo = nftInfos[0];
+    if (!nftInfo) {
+      throw new Error('No Hedera NFT found for that token ID and serial number.');
+    }
+
+    const metadataBuffer = Buffer.from(nftInfo.metadata);
+    const decoded = JSON.parse(metadataBuffer.toString('utf8')) as {
+      p?: string;
+      a?: string;
+    };
+
+    if (!decoded.p) {
+      throw new Error('Hedera NFT metadata is missing proof attestation fields.');
+    }
+
+    return {
+      proofHash: decodeProofHashFromMetadata(decoded.p),
+      benefitAtomic: decoded.a,
+      tokenId: params.tokenId,
+      serialNumber: params.serialNumber,
+    };
+  } catch (error: any) {
+    throw new Error(`Failed to read Hedera NFT attestation: ${error.message ?? String(error)}`);
+  } finally {
+    client.close();
+  }
 }

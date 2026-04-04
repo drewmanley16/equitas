@@ -1,5 +1,10 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { PDFParse } = require('pdf-parse') as { PDFParse: new (opts: object) => { load(buf: Buffer): Promise<void>; getText(): string } };
+const { PDFParse } = require('pdf-parse') as {
+  PDFParse: new (opts: { data: Buffer }) => {
+    getText(): Promise<{ text: string }>;
+    destroy?: () => Promise<void> | void;
+  };
+};
 
 export interface ParsedIncome {
   grossPerPeriod: number;
@@ -22,9 +27,13 @@ export async function parseIncomeFromDocument(
   let text = '';
 
   if (mimetype === 'application/pdf') {
-    const parser = new PDFParse({});
-    await parser.load(buffer);
-    text = parser.getText();
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const result = await parser.getText();
+      text = result.text;
+    } finally {
+      await parser.destroy?.();
+    }
   } else {
     throw new Error('Unsupported file type. Please upload a PDF paystub.');
   }
