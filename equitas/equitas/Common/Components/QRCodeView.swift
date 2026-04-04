@@ -10,7 +10,7 @@ struct QRCodeView: View {
                 .interpolation(.none)
                 .resizable()
                 .scaledToFit()
-                .padding(12)
+                .padding(20)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
         }
     }
@@ -19,9 +19,9 @@ struct QRCodeView: View {
         let context = CIContext()
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(string.utf8)
-        filter.correctionLevel = "M"
+        filter.correctionLevel = "L"
         guard let output = filter.outputImage else { return nil }
-        let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 14, y: 14))
         guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
         return UIImage(cgImage: cgImage)
     }

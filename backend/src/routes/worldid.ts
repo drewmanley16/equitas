@@ -52,7 +52,14 @@ router.post('/status', (req: Request, res: Response) => {
 // POST /api/worldid/verify
 // iOS app sends the IDKit result or legacy proof after verification — backend verifies with World ID API
 router.post('/verify', async (req: Request, res: Response) => {
+  const isStaging = config.worldID.environment === 'staging';
+
+  // v4 IDKit payload (has protocol_version + responses array)
   if (req.body?.protocol_version && Array.isArray(req.body?.responses)) {
+    if (isStaging) {
+      console.log('World ID staging: accepting v4 proof without API verification');
+      return res.json({ success: true, verified: true });
+    }
     try {
       const verified = await verifyIDKitPayload(req.body);
       return res.json({ success: verified.success, verified: verified.success });
@@ -62,10 +69,19 @@ router.post('/verify', async (req: Request, res: Response) => {
     }
   }
 
+  // Legacy v3 proof fields
   const { proof, merkle_root, nullifier_hash, verification_level, nonce, signal } = req.body;
 
   if (!proof || !merkle_root || !nullifier_hash) {
     return res.status(400).json({ error: 'Missing proof fields' });
+  }
+
+  if (isStaging) {
+    console.log('World ID staging: accepting legacy proof without API verification');
+    if (nonce) {
+      resolveLegacySession(nonce, { proof, merkle_root, nullifier_hash, verification_level });
+    }
+    return res.json({ success: true, verified: true });
   }
 
   try {
