@@ -17,6 +17,7 @@ enum EligibilityStatus {
 final class AppState {
     var authState: AuthState
     var eligibilityStatus: EligibilityStatus = .notStarted
+    var eligibilityViewModel = EligibilityViewModel()
     var walletAddress: String? = nil
     /// Set by equitasApp.onOpenURL when World App returns a legacy return_to proof
     var pendingWorldIDCallback: URL? = nil

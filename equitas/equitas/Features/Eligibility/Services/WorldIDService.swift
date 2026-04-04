@@ -1,40 +1,58 @@
 import Foundation
+import IDKit
 
-/// Handles World ID proof-of-personhood verification.
+struct WorldIDVerificationSession {
+    let nonce: String
+    let connectorURL: URL
+    let request: IDKitRequest
+}
+
+/// Handles World ID proof-of-personhood verification using IDKit.
 ///
 /// Flow:
-///   1. verificationURL(nonce:)  → URL with return_to=equitas://worldid-callback
-///   2. Show URL as QR  +  "Open World App" button (openURL)
-///   3. World App verifies → opens equitas://worldid-callback?proof=...
-///   4. parseCallback(_:)       → WorldIDProof
-///   5. verifyOnBackend(proof:nonce:) → confirmed on server
+///   1. startVerification()     → fetch backend RP context + build IDKit request
+///   2. Show connector URL as QR + "Open World App" button
+///   3. request.pollUntilCompletion() waits for World App confirmation
+///   4. verifyOnBackend(result:) forwards the proof payload to World verify API
 @MainActor final class WorldIDService {
 
-    // MARK: - Verification URL (QR + deep link)
+    func startVerification(signal: String = "") async throws -> WorldIDVerificationSession {
+        let context: WorldIDContextResponse = try await APIClient.shared.post(
+            endpoint: .worldIDContext,
+            body: WorldIDContextRequest(signal: signal)
+        )
 
-    /// Builds a worldcoin.org/verify URL that World App understands.
-    /// Works as both a deep link (tap button) and a QR code (scan with World App).
-    func verificationURL(nonce: String) -> URL {
-        let returnTo = "equitas://worldid-callback?nonce=\(nonce)"
+        let rpContext = try RpContext(
+            rpId: context.rpID,
+            nonce: context.nonce,
+            createdAt: context.createdAt,
+            expiresAt: context.expiresAt,
+            signature: context.signature
+        )
 
-        // Percent-encode the return_to value (unreserved chars only)
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        let encoded = returnTo.addingPercentEncoding(withAllowedCharacters: allowed) ?? returnTo
+        let config = IDKitRequestConfig(
+            appId: context.appID,
+            action: context.action,
+            rpContext: rpContext,
+            actionDescription: "Verify Humanity",
+            bridgeUrl: nil,
+            allowLegacyProofs: true,
+            overrideConnectBaseUrl: nil,
+            returnTo: "equitas://worldid-callback?nonce=\(context.nonce)",
+            environment: environment(from: context.environment),
+            connectUrlMode: .default
+        )
 
-        let str = "https://worldcoin.org/verify"
-            + "?app_id=\(WorldIDConfig.appID)"
-            + "&action=\(WorldIDConfig.action)"
-            + "&signal="
-            + "&verification_level=\(WorldIDConfig.verificationLevel)"
-            + "&return_to=\(encoded)"
+        let request = try IDKit.request(config: config)
+            .preset(deviceLegacy(signal: context.signal.isEmpty ? nil : context.signal))
 
-        return URL(string: str)!
+        return WorldIDVerificationSession(
+            nonce: context.nonce,
+            connectorURL: request.connectorURL,
+            request: request
+        )
     }
 
-    // MARK: - Callback parsing
-
-    /// Parses equitas://worldid-callback?proof=X&merkle_root=Y&nullifier_hash=Z
     func parseCallback(_ url: URL) -> WorldIDProof? {
         guard url.scheme == "equitas",
               url.host == "worldid-callback",
@@ -46,27 +64,34 @@ import Foundation
             return (item.name, value)
         })
 
-        guard let proof         = params["proof"],
-              let merkleRoot    = params["merkle_root"],
+        guard let proof = params["proof"],
+              let merkleRoot = params["merkle_root"],
               let nullifierHash = params["nullifier_hash"] else { return nil }
 
         return WorldIDProof(
-            nullifierHash:     nullifierHash,
-            merkleRoot:        merkleRoot,
-            proof:             proof,
+            nullifierHash: nullifierHash,
+            merkleRoot: merkleRoot,
+            proof: proof,
             verificationLevel: params["verification_level"] ?? WorldIDConfig.verificationLevel
         )
     }
 
-    // MARK: - Backend verification
+    func verifyOnBackend(result: IDKitResult) async throws -> Bool {
+        let response: WorldIDVerifyResponse = try await APIClient.shared.post(
+            endpoint: .worldIDVerify,
+            body: WorldIDVerifyRequest(result: result)
+        )
+        guard response.verified else { throw WorldIDError.verificationFailed }
+        return true
+    }
 
     func verifyOnBackend(proof: WorldIDProof, nonce: String) async throws -> Bool {
-        let request = WorldIDVerifyRequest(
-            proof:             proof.proof,
-            merkleRoot:        proof.merkleRoot,
-            nullifierHash:     proof.nullifierHash,
+        let request = LegacyWorldIDVerifyRequest(
+            proof: proof.proof,
+            merkleRoot: proof.merkleRoot,
+            nullifierHash: proof.nullifierHash,
             verificationLevel: proof.verificationLevel,
-            nonce:             nonce
+            nonce: nonce
         )
         let response: WorldIDVerifyResponse = try await APIClient.shared.post(
             endpoint: .worldIDVerify,
@@ -74,5 +99,24 @@ import Foundation
         )
         guard response.verified else { throw WorldIDError.verificationFailed }
         return true
+    }
+
+    private func environment(from value: String) -> Environment {
+        value.lowercased() == "staging" ? .staging : .production
+    }
+}
+
+private struct LegacyWorldIDVerifyRequest: Codable {
+    let proof: String
+    let merkleRoot: String
+    let nullifierHash: String
+    let verificationLevel: String
+    let nonce: String
+
+    enum CodingKeys: String, CodingKey {
+        case proof, nonce
+        case merkleRoot = "merkle_root"
+        case nullifierHash = "nullifier_hash"
+        case verificationLevel = "verification_level"
     }
 }

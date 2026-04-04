@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct EligibilityRootView: View {
-    @State private var viewModel = EligibilityViewModel()
+    @Environment(AppState.self) private var appState
+
+    private var viewModel: EligibilityViewModel {
+        appState.eligibilityViewModel
+    }
 
     var body: some View {
         ZStack {

@@ -4,6 +4,7 @@ struct WorldIDStepView: View {
     let viewModel: EligibilityViewModel
     @Environment(AppState.self) private var appState
     @Environment(\.openURL)    private var openURL
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -98,6 +99,10 @@ struct WorldIDStepView: View {
             appState.pendingWorldIDCallback = nil
             Task { await viewModel.handleCallback(url: url) }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            viewModel.resumeWorldIDVerificationIfNeeded()
+        }
     }
 }
 
@@ -111,12 +116,12 @@ private struct VerifyOptionsView: View {
     var body: some View {
         VStack(spacing: 20) {
 
-            // Option 1: QR code (scan with World App from any device)
+            // Option 1: QR code (scan with World App from another device)
             VStack(spacing: 12) {
                 HStack {
                     Image(systemName: "qrcode")
                         .foregroundStyle(EquitasTheme.purple)
-                    Text("Scan with World App")
+                    Text("Use Another Device")
                         .font(EquitasTheme.headlineFont)
                         .foregroundStyle(EquitasTheme.textPrimary)
                 }
@@ -146,12 +151,12 @@ private struct VerifyOptionsView: View {
                 Rectangle().fill(EquitasTheme.textSecondary.opacity(0.3)).frame(height: 1)
             }
 
-            // Option 2: Open World App directly (same device)
+            // Option 2: Open World App directly on the current device
             PrimaryButton(title: "Authorize with World ID", icon: "globe", style: .gold) {
                 openURL(url)
             }
 
-            Text("Opens World App if installed, or worldcoin.org in your browser.")
+            Text("On this phone, tap the button below instead of trying to scan the QR.")
                 .font(EquitasTheme.captionFont)
                 .foregroundStyle(EquitasTheme.textSecondary.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -195,7 +200,7 @@ private struct StatusBadge: View {
 
 private struct HowItWorksCard: View {
     private let steps: [(String, String)] = [
-        ("1", "Scan the QR with World App — or tap the button to open World App"),
+        ("1", "Use the QR from another device, or tap the button below on this device"),
         ("2", "World App generates a ZK proof of your iris scan"),
         ("3", "Proof verified on-chain — your data stays private"),
     ]

@@ -1,4 +1,5 @@
 import SwiftUI
+import IDKit
 
 enum VerificationStep {
     case worldID
@@ -32,6 +33,8 @@ final class EligibilityViewModel {
     private var worldIDProof:  WorldIDProof?
     private var zkProofResult: ZKProofResult?
     private var activeNonce:   String?
+    private var activeRequest: IDKitRequest?
+    private var verificationTask: Task<Void, Never>?
     private let service = WorldIDService()
 
     var stepIndex: Int {
@@ -45,27 +48,48 @@ final class EligibilityViewModel {
     // MARK: - World ID
 
     func startWorldIDVerification() async {
+        guard case .worldID = currentStep else { return }
+        if case .fetchingContext = worldIDState { return }
+        if case .waitingForScan = worldIDState { return }
+        if case .verifying = worldIDState { return }
+
+        verificationTask?.cancel()
+        verificationTask = nil
+        activeRequest = nil
         worldIDState = .fetchingContext
-        let nonce = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-        activeNonce     = nonce
-        verificationURL = service.verificationURL(nonce: nonce)
-        worldIDState    = .waitingForScan
+        do {
+            let verification = try await service.startVerification()
+            activeNonce = verification.nonce
+            verificationURL = verification.connectorURL
+            activeRequest = verification.request
+            worldIDState = .waitingForScan
+            waitForWorldIDCompletion(using: verification.request)
+        } catch {
+            worldIDState = .failed(error)
+        }
     }
 
     /// Called when equitas://worldid-callback arrives via onOpenURL
     func handleCallback(url: URL) async {
-        guard let proof = service.parseCallback(url),
-              let nonce = activeNonce else { return }
-        worldIDState = .verifying
-        do {
-            _ = try await service.verifyOnBackend(proof: proof, nonce: nonce)
-            worldIDProof = proof
-            worldIDState = .verified
-            try? await Task.sleep(nanoseconds: 1_200_000_000) // show ✓ briefly
-            currentStep  = .incomeVerification
-        } catch {
-            worldIDState = .failed(error)
+        guard url.scheme == "equitas", url.host == "worldid-callback" else { return }
+
+        if let proof = service.parseCallback(url),
+           let nonce = activeNonce {
+            verificationTask?.cancel()
+            verificationTask = nil
+            await completeWorldIDVerification(with: proof, nonce: nonce, shouldVerifyOnBackend: true)
+            return
         }
+
+        resumeWorldIDVerificationIfNeeded()
+    }
+
+    func resumeWorldIDVerificationIfNeeded() {
+        guard case .waitingForScan = worldIDState,
+              verificationTask == nil,
+              let activeRequest else { return }
+
+        waitForWorldIDCompletion(using: activeRequest)
     }
 
     // MARK: - Income ZK proof
@@ -121,6 +145,85 @@ final class EligibilityViewModel {
             currentStep = .complete
         } catch {
             currentStep = .failed(error)
+        }
+    }
+
+    private func waitForWorldIDCompletion(using request: IDKitRequest) {
+        verificationTask?.cancel()
+        verificationTask = Task { [weak self] in
+            guard let self else { return }
+
+            let completion = await request.pollUntilCompletion(
+                options: IDKitPollOptions(
+                    pollIntervalMs: 1_000,
+                    timeoutMs: 180_000
+                )
+            )
+
+            switch completion {
+            case .success(let result):
+                await self.completeWorldIDVerification(with: result)
+            case .failure(let error):
+                if error == .cancelled {
+                    await MainActor.run {
+                        self.verificationTask = nil
+                    }
+                    return
+                }
+                await MainActor.run {
+                    self.verificationTask = nil
+                    self.activeRequest = nil
+                    self.worldIDState = .failed(self.worldIDError(from: error))
+                }
+            }
+        }
+    }
+
+    private func completeWorldIDVerification(
+        with proof: WorldIDProof,
+        nonce: String,
+        shouldVerifyOnBackend: Bool
+    ) async {
+        verificationTask = nil
+        activeRequest = nil
+        worldIDState = .verifying
+
+        do {
+            if shouldVerifyOnBackend {
+                _ = try await service.verifyOnBackend(proof: proof, nonce: nonce)
+            }
+            worldIDProof = proof
+            worldIDState = .verified
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            currentStep = .incomeVerification
+        } catch {
+            worldIDState = .failed(error)
+        }
+    }
+
+    private func completeWorldIDVerification(with result: IDKitResult) async {
+        verificationTask = nil
+        activeRequest = nil
+        worldIDState = .verifying
+
+        do {
+            _ = try await service.verifyOnBackend(result: result)
+            worldIDState = .verified
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            currentStep = .incomeVerification
+        } catch {
+            worldIDState = .failed(error)
+        }
+    }
+
+    private func worldIDError(from error: IDKitErrorCode) -> Error {
+        switch error {
+        case .timeout:
+            return WorldIDError.pollingTimeout
+        case .cancelled:
+            return WorldIDError.cancelled
+        default:
+            return WorldIDError.verificationFailed
         }
     }
 }

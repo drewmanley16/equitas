@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E631CB252F8067F100CF633A /* IDKit in Frameworks */ = {isa = PBXBuildFile; productRef = E631CB242F8067F100CF633A /* IDKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		E631CA7B2F801DAE00CF633A /* equitas.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = equitas.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E631CB262F80681A00CF633A /* idkit-swift */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = "idkit-swift"; path = "/Users/drewmanley/Documents/projects/equitas/equitas/idkit-swift"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,6 +41,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E631CB252F8067F100CF633A /* IDKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -47,6 +53,7 @@
 			children = (
 				E631CA7D2F801DAE00CF633A /* equitas */,
 				E631CA7C2F801DAE00CF633A /* Products */,
+				E631CB262F80681A00CF633A /* idkit-swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -78,6 +85,7 @@
 			);
 			name = equitas;
 			packageProductDependencies = (
+				E631CB242F8067F100CF633A /* IDKit */,
 			);
 			productName = equitas;
 			productReference = E631CA7B2F801DAE00CF633A /* equitas.app */;
@@ -107,6 +115,9 @@
 			);
 			mainGroup = E631CA722F801DAE00CF633A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E631CB232F8067F100CF633A /* XCRemoteSwiftPackageReference "idkit-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E631CA7C2F801DAE00CF633A /* Products */;
 			projectDirPath = "";
@@ -347,6 +358,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E631CB232F8067F100CF633A /* XCRemoteSwiftPackageReference "idkit-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/worldcoin/idkit-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.0.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E631CB242F8067F100CF633A /* IDKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E631CB232F8067F100CF633A /* XCRemoteSwiftPackageReference "idkit-swift" */;
+			productName = IDKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E631CA732F801DAE00CF633A /* Project object */;
 }
