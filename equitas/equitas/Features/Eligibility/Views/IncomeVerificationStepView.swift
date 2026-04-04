@@ -57,6 +57,11 @@ struct IncomeVerificationStepView: View {
                             showFilePicker = true
                         }
 
+                        PrimaryButton(title: "Use Demo Paystub", icon: "sparkles.rectangle.stack.fill", style: .ghost) {
+                            pickerError = nil
+                            viewModel.useDemoPaystub()
+                        }
+
                         // Secondary: Scan with camera (placeholder)
                         PrimaryButton(title: "Scan Document", icon: "camera.fill", style: .ghost) {
                             Task { await viewModel.startDocumentScan() }
@@ -78,6 +83,11 @@ struct IncomeVerificationStepView: View {
                             .foregroundStyle(.red)
                             .multilineTextAlignment(.center)
                     }
+
+                    Text("Demo mode skips PDF parsing and marks the income step as eligible so you can continue through the rest of the UI.")
+                        .font(EquitasTheme.captionFont)
+                        .foregroundStyle(EquitasTheme.textSecondary.opacity(0.8))
+                        .multilineTextAlignment(.center)
 
                     // How it works card
                     HowItWorksCard()

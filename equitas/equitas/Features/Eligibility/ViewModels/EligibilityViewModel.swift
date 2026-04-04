@@ -21,6 +21,7 @@ final class EligibilityViewModel {
     var isProvingIncome                   = false
     var zkEmployer:   String?             = nil
     var zkPayPeriod:  String?             = nil
+    var isDemoEligibilityFlow            = false
 
     /// URL shown as QR code and opened by the "Open World App" button
     var verificationURL: URL?
@@ -98,6 +99,7 @@ final class EligibilityViewModel {
 
     /// Primary path: user picks a PDF paystub — backend parses + proves eligibility.
     func uploadDocument(url: URL) async {
+        isDemoEligibilityFlow = false
         isProvingIncome = true
         do {
             let prover = DocumentZKProofService()
@@ -113,6 +115,29 @@ final class EligibilityViewModel {
         }
     }
 
+    func useDemoPaystub() {
+        isDemoEligibilityFlow = true
+        isProvingIncome = true
+
+        let result = ZKProofResult(
+            proof: Data("demo-proof-hash".utf8),
+            publicSignals: [
+                "eligible",
+                "threshold_cents:200500",
+                "demo:true",
+            ],
+            isValid: true,
+            employer: "Acme Grocery Co.",
+            payPeriod: "biweekly"
+        )
+
+        zkEmployer = result.employer
+        zkPayPeriod = result.payPeriod
+        zkProofResult = result
+        isProvingIncome = false
+        currentStep = .processing
+    }
+
     /// Placeholder — camera scanning not yet implemented.
     func startDocumentScan() async {
         currentStep = .failed(DocumentScannerError.scanningNotAvailable)
@@ -125,6 +150,27 @@ final class EligibilityViewModel {
     // MARK: - Blockchain orchestration
 
     func runBlockchainOrchestration() async {
+        if isDemoEligibilityFlow {
+            walletStatus = .inProgress
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            walletStatus = .complete
+
+            circlesStatus = .inProgress
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            circlesStatus = .complete
+
+            nftStatus = .inProgress
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            nftStatus = .complete
+
+            benefitsFundingStatus = .inProgress
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            benefitsFundingStatus = .complete
+
+            currentStep = .complete
+            return
+        }
+
         let walletService  = WalletService()
         let circlesService = CirclesWalletService()
         let hederaService   = HederaService()
@@ -317,7 +363,6 @@ enum WorldIDState: Equatable {
         }
     }
 }
-
 enum EligibilityAttestationError: LocalizedError {
     case missingIncomeProof
     case missingWorldIDNullifier
