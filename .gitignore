@@ -1,5 +1,8 @@
 .DS_Store
 
+# Local Anvil / demo artifacts (see LOCAL_DEMO.md)
+.local-demo/
+
 # Xcode
 xcuserdata/
 *.xcuserstate

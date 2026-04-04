@@ -1,0 +1,120 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      { "name": "initialOwner", "type": "address" },
+      { "name": "usdcToken", "type": "address" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "approvedMerchants",
+    "inputs": [{ "name": "", "type": "address" }],
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "approvedUsers",
+    "inputs": [{ "name": "", "type": "address" }],
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "userAllowance",
+    "inputs": [{ "name": "", "type": "address" }],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "userSpent",
+    "inputs": [{ "name": "", "type": "address" }],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "userExpiry",
+    "inputs": [{ "name": "", "type": "address" }],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setMerchant",
+    "inputs": [
+      { "name": "merchant", "type": "address" },
+      { "name": "approved", "type": "bool" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setUserEligibility",
+    "inputs": [
+      { "name": "user", "type": "address" },
+      { "name": "eligible", "type": "bool" },
+      { "name": "expiryTimestamp", "type": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setUserAllowance",
+    "inputs": [
+      { "name": "user", "type": "address" },
+      { "name": "allowance", "type": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "depositBenefits",
+    "inputs": [{ "name": "amount", "type": "uint256" }],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "payMerchant",
+    "inputs": [
+      { "name": "merchant", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "usdc",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view"
+  }
+]

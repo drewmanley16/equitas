@@ -26,8 +26,8 @@ final class EligibilityViewModel {
     // Processing sub-step statuses
     var walletStatus:  ProcessingStatus = .pending
     var circlesStatus: ProcessingStatus = .pending
-    var nftStatus:     ProcessingStatus = .pending
-    var tokenStatus:   ProcessingStatus = .pending
+    var nftStatus:              ProcessingStatus = .pending
+    var benefitsFundingStatus:  ProcessingStatus = .pending
 
     // In-memory only
     private var worldIDProof:  WorldIDProof?
@@ -122,8 +122,8 @@ final class EligibilityViewModel {
     func runBlockchainOrchestration() async {
         let walletService  = WalletService()
         let circlesService = CirclesWalletService()
-        let hederaService  = HederaService()
-        let snapService    = SNAPtokenService()
+        let hederaService   = HederaService()
+        let benefitsService = SNAPBenefitsService()
 
         do {
             walletStatus = .inProgress
@@ -138,9 +138,12 @@ final class EligibilityViewModel {
             let nftResult = try await hederaService.mintEligibilityNFT(wallet: wallet)
             nftStatus = .complete
 
-            tokenStatus = .inProgress
-            try await snapService.issueInitialTokens(to: wallet.address, nftSerial: nftResult.serialNumber)
-            tokenStatus = .complete
+            benefitsFundingStatus = .inProgress
+            try await benefitsService.fundBenefitsAfterEligibility(
+                walletAddress: wallet.address,
+                nftSerial: nftResult.serialNumber
+            )
+            benefitsFundingStatus = .complete
 
             currentStep = .complete
         } catch {

@@ -15,7 +15,7 @@ struct ProcessingStepView: View {
                 ProcessingRow(label: "Creating wallet", status: viewModel.walletStatus)
                 ProcessingRow(label: "Registering on ARC network", status: viewModel.circlesStatus)
                 ProcessingRow(label: "Minting eligibility NFT", status: viewModel.nftStatus)
-                ProcessingRow(label: "Issuing SNAP tokens", status: viewModel.tokenStatus)
+                ProcessingRow(label: "Funding SNAP benefits (USDC)", status: viewModel.benefitsFundingStatus)
             }
             .padding()
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))

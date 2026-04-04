@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @State private var selectedTab = 1
+    @State private var walletViewModel = WalletViewModel()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -14,7 +15,7 @@ struct MainTabView: View {
             .tag(0)
 
             NavigationStack {
-                WalletRootView()
+                WalletRootView(viewModel: walletViewModel)
             }
             .tabItem {
                 Label("Wallet", systemImage: "wallet.bifold.fill")
