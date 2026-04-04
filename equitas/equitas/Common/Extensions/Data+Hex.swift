@@ -1,11 +1,11 @@
 import Foundation
 
 extension Data {
-    var hexString: String {
+    nonisolated var hexString: String {
         map { String(format: "%02x", $0) }.joined()
     }
 
-    init?(hexString: String) {
+    nonisolated init?(hexString: String) {
         let len = hexString.count
         guard len % 2 == 0 else { return nil }
         var data = Data()

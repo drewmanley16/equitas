@@ -22,7 +22,7 @@ actor BackendZKProofService: ZKProofService {
             endpoint: .zkProve,
             body: request
         )
-        let isValid = ZKVerifier.shared.verify(
+        let isValid = ZKVerifier.verify(
             proof: Data(hexString: response.proof) ?? Data(),
             publicSignals: response.publicSignals
         )
