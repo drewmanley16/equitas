@@ -16,6 +16,8 @@ See [LOCAL_DEMO.md](LOCAL_DEMO.md) for a full **localhost-only** ARC flow (Anvil
 
 Stateless Express service that drives `SNAPSpender` with an operator wallet.
 
+**Post-verification funding:** Identity and ZK proof verification are handled elsewhere (e.g. the iOS app or another service). This benefits server does **not** verify proofs. After verification succeeds, clients call `POST /api/post-verification/process` with income and household inputs; the server computes the benefit, then sets eligibility and allowance on `SNAPSpender` and pulls the matching USDC into the contract. There is **no** separate SNAP-pegged token — benefits are **restricted USDC** held in `SNAPSpender` until spent at approved merchants.
+
 ```bash
 cd backend
 npm install
@@ -27,6 +29,7 @@ npm start
 Core routes:
 
 - `GET /api/health`
+- `POST /api/post-verification/process` — hand off from successful verification to on-chain funding (see [backend/API_EXAMPLES.md](backend/API_EXAMPLES.md))
 - `POST /api/benefits/approve-user`
 - `POST /api/benefits/deposit`
 - `POST /api/benefits/setup-merchant`

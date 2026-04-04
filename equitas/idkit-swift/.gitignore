@@ -8,3 +8,6 @@ DerivedData/
 .netrc
 .swiftpm
 Package.resolved
+
+# Built FFI artifacts (large binaries; regenerate locally — not for GitHub)
+Artifacts/
