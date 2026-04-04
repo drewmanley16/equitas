@@ -1,6 +1,6 @@
 import Foundation
 
-enum APIEndpoint {
+enum APIEndpoint: Sendable {
     case verifyApple
     case worldIDContext
     case worldIDStatus
@@ -10,6 +10,11 @@ enum APIEndpoint {
     case mintNFT
     case issueTokens
     case generatePass
+    case benefitsApproveUser
+    case benefitsDeposit
+    case benefitsSetupMerchant
+    case benefitsStatus(String)
+    case benefitsPayMerchant
 
     private static let baseURL: String = {
         #if DEBUG
@@ -28,9 +33,14 @@ enum APIEndpoint {
         case .worldIDVerify:        path = "/api/worldid/verify"
         case .worldIDOIDCExchange:  path = "/api/worldid/oidc-exchange"
         case .zkProve:              path = "/api/zk/prove"
-        case .mintNFT:        path = "/api/blockchain/mint-nft"
-        case .issueTokens:    path = "/api/blockchain/issue-tokens"
-        case .generatePass:   path = "/api/wallet/generate-pass"
+        case .mintNFT:               path = "/api/blockchain/mint-nft"
+        case .issueTokens:           path = "/api/blockchain/issue-tokens"
+        case .generatePass:          path = "/api/wallet/generate-pass"
+        case .benefitsApproveUser:   path = "/api/benefits/approve-user"
+        case .benefitsDeposit:       path = "/api/benefits/deposit"
+        case .benefitsSetupMerchant: path = "/api/benefits/setup-merchant"
+        case .benefitsStatus(let address): path = "/api/benefits/status/\(address)"
+        case .benefitsPayMerchant:   path = "/api/benefits/pay-merchant"
         }
         return URL(string: Self.baseURL + path)!
     }

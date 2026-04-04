@@ -22,7 +22,7 @@ protocol ZKProofService {
             endpoint: .zkProve,
             body: request
         )
-        let isValid = ZKVerifier.verify(
+        let isValid = ZKVerifier.shared.verify(
             proof: Data(hexString: response.proof) ?? Data(),
             publicSignals: response.publicSignals
         )

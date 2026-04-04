@@ -2,3 +2,4 @@
 # Regenerate with: ./scripts/package-swift.sh
 *
 !.gitignore
+!idkit_core.swift

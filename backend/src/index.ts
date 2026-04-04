@@ -4,6 +4,7 @@ import authRoutes       from './routes/auth';
 import worldIDRoutes    from './routes/worldid';
 import zkRoutes         from './routes/zk';
 import blockchainRoutes from './routes/blockchain';
+import benefitsRoutes   from './routes/benefits';
 
 const app = express();
 app.use(express.json());
@@ -16,6 +17,7 @@ app.use('/api/auth',       authRoutes);
 app.use('/api/worldid',    worldIDRoutes);
 app.use('/api/zk',         zkRoutes);
 app.use('/api/blockchain', blockchainRoutes);
+app.use('/api/benefits',   benefitsRoutes);
 
 app.listen(config.port, () => {
   console.log(`Equitas backend running on port ${config.port}`);
