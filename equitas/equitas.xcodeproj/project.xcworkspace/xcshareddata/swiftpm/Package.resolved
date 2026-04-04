@@ -1,0 +1,15 @@
+{
+  "originHash" : "8a0e18fe2694d6d179699c5733444beccd5ffaf523180cedfb7b37f5d0d93fe3",
+  "pins" : [
+    {
+      "identity" : "idkit-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/worldcoin/idkit-swift",
+      "state" : {
+        "revision" : "963426c1a8a5764a3b95c011a42571bd31d32b94",
+        "version" : "4.0.6"
+      }
+    }
+  ],
+  "version" : 3
+}
