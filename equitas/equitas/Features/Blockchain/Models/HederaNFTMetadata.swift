@@ -34,10 +34,29 @@ struct HederaNFTMintResponse: Codable {
     let hederaTokenId: String
     let serialNumber: Int
     let txId: String
+    let hederaAccountId: String?
+    let createdRecipientAccount: Bool?
 }
 
 struct HederaNFTMintResult {
     let tokenId: String
     let serialNumber: Int
     let transactionId: String
+    let hederaAccountId: String?
+    let createdRecipientAccount: Bool
+}
+
+struct ARCIssueTokensRequest: Codable {
+    let walletAddress: String
+    let serialNumber: Int
+    let proofHash: String
+}
+
+struct ARCIssueTokensResponse: Codable {
+    let ok: Bool
+    let serialNumber: Int
+    let proofHash: String
+    let eligibilityTxHash: String
+    let allowanceTxHash: String
+    let depositTxHash: String
 }

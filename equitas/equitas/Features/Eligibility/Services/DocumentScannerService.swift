@@ -1,16 +1,17 @@
-import VisionKit
-import Vision
-import UIKit
+import Foundation
 
+enum DocumentScannerError: Error, LocalizedError {
+    case scanningNotAvailable
+
+    var errorDescription: String? {
+        "Camera scanning is coming soon. Please use 'Upload from Files' instead."
+    }
+}
+
+/// Placeholder — VNDocumentCameraViewController integration is pending.
+/// The primary income verification path is document upload via DocumentZKProofService.
 actor DocumentScannerService {
     func scanPaystub() async throws -> IncomeFields {
-        // TODO: present VNDocumentCameraViewController, run VNRecognizeTextRequest
-        // Placeholder returning test data
-        return IncomeFields(
-            grossCents: 200000,
-            employerName: "ACME Corp",
-            periodStart: Date().addingTimeInterval(-1_209_600),
-            periodEnd: Date()
-        )
+        throw DocumentScannerError.scanningNotAvailable
     }
 }

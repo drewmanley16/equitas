@@ -18,7 +18,7 @@ enum APIEndpoint: Sendable {
 
     private static let baseURL: String = {
         #if DEBUG
-        return "http://localhost:3000"   // local backend (npm run dev in backend/)
+        return "http://10.105.176.151:3000"   // local backend — Mac LAN IP (works on device + simulator)
         #else
         return "https://api.equitas.app" // Railway production URL — update after deploy
         #endif
