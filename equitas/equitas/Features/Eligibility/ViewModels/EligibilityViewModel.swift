@@ -130,6 +130,15 @@ final class EligibilityViewModel {
         let hederaService   = HederaService()
         let benefitsService = SNAPBenefitsService()
 
+        guard let proofHash = currentProofHash else {
+            currentStep = .failed(EligibilityAttestationError.missingIncomeProof)
+            return
+        }
+        guard let worldIDNullifier = currentWorldIDNullifier else {
+            currentStep = .failed(EligibilityAttestationError.missingWorldIDNullifier)
+            return
+        }
+
         do {
             walletStatus = .inProgress
             let wallet = try await walletService.createOrLoadWallet()
@@ -140,13 +149,18 @@ final class EligibilityViewModel {
             circlesStatus = .complete
 
             nftStatus = .inProgress
-            let nftResult = try await hederaService.mintEligibilityNFT(wallet: wallet)
+            let nftResult = try await hederaService.mintEligibilityNFT(
+                wallet: wallet,
+                proofHash: proofHash,
+                worldIDNullifier: worldIDNullifier
+            )
             nftStatus = .complete
 
             benefitsFundingStatus = .inProgress
             try await benefitsService.fundBenefitsAfterEligibility(
                 walletAddress: wallet.address,
-                nftSerial: nftResult.serialNumber
+                nftSerial: nftResult.serialNumber,
+                proofHash: proofHash
             )
             benefitsFundingStatus = .complete
 
@@ -216,6 +230,14 @@ final class EligibilityViewModel {
 
         do {
             _ = try await service.verifyOnBackend(result: result)
+            if let nullifier = worldIDNullifier(from: result) {
+                worldIDProof = WorldIDProof(
+                    nullifierHash: nullifier,
+                    merkleRoot: "",
+                    proof: "",
+                    verificationLevel: WorldIDConfig.verificationLevel
+                )
+            }
             worldIDState = .verified
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             currentStep = .incomeVerification
@@ -233,6 +255,34 @@ final class EligibilityViewModel {
         default:
             return WorldIDError.verificationFailed
         }
+    }
+
+    private var currentProofHash: String? {
+        guard let zkProofResult else { return nil }
+        let value = String(decoding: zkProofResult.proof, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    private var currentWorldIDNullifier: String? {
+        guard let nullifier = worldIDProof?.nullifierHash else { return nil }
+        let value = nullifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
+        return value
+    }
+
+    private func worldIDNullifier(from result: IDKitResult) -> String? {
+        for response in result.responses {
+            switch response {
+            case .v4(_, _, _, _, let nullifier, _):
+                if !nullifier.isEmpty { return nullifier }
+            case .v3(_, _, _, _, let nullifier):
+                if !nullifier.isEmpty { return nullifier }
+            case .session:
+                continue
+            }
+        }
+        return nil
     }
 }
 
@@ -268,3 +318,16 @@ enum WorldIDState: Equatable {
     }
 }
 
+enum EligibilityAttestationError: LocalizedError {
+    case missingIncomeProof
+    case missingWorldIDNullifier
+
+    var errorDescription: String? {
+        switch self {
+        case .missingIncomeProof:
+            return "Income proof is missing, so the Hedera eligibility NFT could not be minted."
+        case .missingWorldIDNullifier:
+            return "World ID verification is missing a nullifier, so the Hedera eligibility NFT could not be minted."
+        }
+    }
+}

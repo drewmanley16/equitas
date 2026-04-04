@@ -36,6 +36,70 @@ Optional demo route (signs `payMerchant` with a beneficiary key — not for prod
 
 - `POST /api/benefits/pay-merchant`
 
+## Hedera minting process
+
+The Hedera NFT is the eligibility attestation artifact. It stores the wallet address, income-proof hash, and World ID nullifier in NFT metadata on Hedera testnet.
+
+Required backend env:
+
+- `HEDERA_ACCOUNT_ID`
+- `HEDERA_PRIVATE_KEY` from Hedera Portal for that exact account
+- `HEDERA_NETWORK=testnet`
+
+If Hedera Portal shows a `HEX Encoded Private Key`, you can paste that value directly into `HEDERA_PRIVATE_KEY`. The backend now accepts hex ECDSA/ED25519 keys as well as DER-formatted keys.
+
+Create the NFT collection first to get `HEDERA_TOKEN_ID`:
+
+```bash
+cd backend
+npm run create:hedera-nft
+```
+
+Optional flags:
+
+```bash
+npm run create:hedera-nft -- \
+  --name "Equitas SNAP Eligibility" \
+  --symbol EQUITAS \
+  --memo "Equitas eligibility attestation NFT" \
+  --max-supply 100000
+```
+
+The script prints a token ID like `0.0.1234567`. Put that into `backend/.env`:
+
+```env
+HEDERA_TOKEN_ID=0.0.1234567
+```
+
+Run a direct mint smoke test:
+
+```bash
+cd backend
+npm run mint:hedera -- \
+  --wallet 0xYourWalletAddress \
+  --proof zk-proof-hash-from-backend \
+  --nullifier worldid-nullifier
+```
+
+Or call the API route the app uses:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/blockchain/mint-nft \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "walletAddress":"0xYourWalletAddress",
+    "proofHash":"zk-proof-hash-from-backend",
+    "worldIDNullifier":"worldid-nullifier"
+  }'
+```
+
+Expected flow:
+
+- World ID verification completes.
+- Income proof hash is generated.
+- `POST /api/blockchain/mint-nft` mints the Hedera testnet NFT.
+- `POST /api/blockchain/issue-tokens` releases ARC benefits only after the NFT mint succeeds.
+
 ## Smart contracts (Foundry)
 
 Canonical sources live under `blockchain/src/`. Symlinks `blockchain/SNAPSpender.sol` and `blockchain/MockUSDC.sol` point at those files.

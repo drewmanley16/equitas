@@ -41,3 +41,18 @@ struct HederaNFTMintResult {
     let serialNumber: Int
     let transactionId: String
 }
+
+struct ARCIssueTokensRequest: Codable {
+    let walletAddress: String
+    let serialNumber: Int
+    let proofHash: String
+}
+
+struct ARCIssueTokensResponse: Codable {
+    let ok: Bool
+    let serialNumber: Int
+    let proofHash: String
+    let eligibilityTxHash: String
+    let allowanceTxHash: String
+    let depositTxHash: String
+}
